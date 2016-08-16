@@ -10,11 +10,11 @@ function matfile = glm_event_regression(data_matrix_file, para_file, ...
 
 %% Outside directories
 
-global root_directory
-if ~exist([root_directory '/general-analysis-code'], 'dir')
-    error('general-analysis-code not found in root_directory');
-end
-addpath([root_directory '/general-analysis-code'])
+% global root_directory
+% if ~exist([root_directory '/general-analysis-code'], 'dir')
+%     error('general-analysis-code not found in root_directory');
+% end
+% addpath([root_directory '/general-analysis-code']);
 
 % default no permutation tests
 if nargin < 4

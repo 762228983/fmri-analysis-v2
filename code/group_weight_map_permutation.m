@@ -58,8 +58,8 @@ function [logp_gaussfit, logp_counts, Z_subject_mean, Z_null_smps] = group_weigh
 %     colorbar;
 % end
 
-% path to directory with useful analysis scripts
-addpath([params('rootdir') 'general-analysis-code'])
+% % path to directory with useful analysis scripts
+% addpath([params('rootdir') 'general-analysis-code'])
 
 if nargin < 4
     plot_figures = false;

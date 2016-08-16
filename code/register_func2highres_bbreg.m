@@ -18,7 +18,7 @@ if ~exist(init_reg_dir, 'dir')
 end
 
 % directory with hand-tuned files
-bbreg_directory = [preprocessing_directory '/' 'reg_bbreg/'];
+bbreg_directory = [preprocessing_directory '/' 'reg_bbreg'];
 if ~exist(bbreg_directory,'dir')
   mkdir(bbreg_directory);
 end

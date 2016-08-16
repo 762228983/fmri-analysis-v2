@@ -1,13 +1,13 @@
 function corr_test_retest = glm_contrast_map_reliability(...
     matfile_first_level, analysis_directory, figure_directory, varargin)
 
-global root_directory;
+% global root_directory;
 
-% add analysis code directory, throw error if it doesn't exist
-if ~exist([root_directory '/general-analysis-code'], 'dir')
-    error('general-analysis-code directory is not in the root_directory');
-end
-addpath([root_directory '/general-analysis-code']);
+% % add analysis code directory, throw error if it doesn't exist
+% if ~exist([root_directory '/general-analysis-code'], 'dir')
+%     error('general-analysis-code directory is not in the root_directory');
+% end
+% addpath([root_directory '/general-analysis-code']);
 
 % load weights from each run
 n_runs = length(matfile_first_level);

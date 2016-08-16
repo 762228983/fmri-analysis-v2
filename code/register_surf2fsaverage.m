@@ -26,5 +26,5 @@ end
 if ~exist(fsaverage_file,'file') || optInputs(varargin,'overwrite')
   unix_freesurfer_version(freesurfer_version, ...
       ['mri_surf2surf --srcsubject ' subjid ' --sval ' surface_file  ...
-      '--trgsubject myfsaverage --tval ' fsaverage_file  ' --hemi ' hemi]);
+      ' --trgsubject myfsaverage --tval ' fsaverage_file  ' --hemi ' hemi]);
 end

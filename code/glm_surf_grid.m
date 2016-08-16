@@ -105,13 +105,20 @@ surf = grid2surface(G);
 
 % plot surface
 color_range = [-5 5];
+
+if optInputs(varargin, 'color_range')
+    color_range = varargin{optInputs(varagin, 'color_range')+1};
+end 
+
 n_contrasts = size(surf,3);
 load(matfile, 'P');
 for i = 1:n_contrasts
     hemis = {'rh','lh'};
     for q = 1:2
         
-        figure_file = [figure_directory '/' 'pmap_' P.contrast_names{i} '_' hemis{q} '_central95.png'];
+        figure_file = [figure_directory '/' 'pmap_' P.contrast_names{i} ...
+            '_' hemis{q} '_colrange_' num2str(color_range(1)) ...
+            '_' num2str(color_range(2)) '.png'];
         
         if ~exist(figure_file, 'file') || optInputs(varargin, 'overwrite')
             
@@ -122,7 +129,7 @@ for i = 1:n_contrasts
                 set(figh, 'Position', [pos(1:2), 800 800]);
             end
            
-            % plot surface map, relative threshold, central 95% of the distribution
+            % plot surface map
             plot_fsaverage_1D_overlay(surf(:,q,i),hemis{q},'parula',color_range,figh);
             export_fig(figure_file,'-png','-r100','-nocrop');
         end

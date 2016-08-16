@@ -2,6 +2,12 @@ function [matfile_second_level, matfile_first_level] = ...
     glm_second_level(data_matrix_files, para_files, ...
     parameter_file, n_perms, output_directory, varargin)
 
+% global root_directory;
+% if ~exist([root_directory '/general-analysis-code'], 'dir')
+%     error('general-analysis-code not found in root_directory');
+% end
+% addpath([root_directory '/general-analysis-code']);
+
 % optional arguments
 if nargin < 4
     n_perms = 0;
@@ -114,6 +120,7 @@ if ~any(strcmp('logP_permtest',varnames)) ...
     end
         
     % estimate P value
+    load(matfile_second_level, 'beta_contrast');
     logP_permtest = sig_via_null_gaussfit(beta_contrast, beta_contrast_permtest); %#ok<NASGU>
     
     % save results
