@@ -18,6 +18,8 @@ analysis_directory = [root_directory  '/' exp '/analysis/glm/' analysis_name ...
 % condition weight file
 parameter_file = [root_directory '/' exp '/analysis/glm' ...
     '/' analysis_name '/parameters.mat'];
+P = load(parameter_file);
+P = glm_default_parameters(P);
 
 % analysis directory
 figure_directory = strrep(analysis_directory, 'analysis', 'figures');
@@ -36,6 +38,8 @@ runs = read_runs(exp, us, runtype);
 n_runs = length(runs);
 para_files = cell(1, n_runs);
 data_matrix_files = cell(1, n_runs);
+nuissance_regressor_files = cell(1, n_runs);
+
 for i = 1:length(runs)
     
     r = runs(i);
@@ -64,26 +68,41 @@ for i = 1:length(runs)
                 
         % reformat to voxel x datapoint/timepoint
         load(grid_file, 'G');
-        data_matrix = grid2matrix(G); %#ok<NASGU,NODEF>
+        data_matrix = grid2matrix(G); %#ok<NASGU>
         
         % save
         save(data_matrix_files{i}, 'data_matrix', 'TR', 'G', '-v7.3');
         
     end
-end
     
+    % add white matter regressors
+    X_nuissance = [];
+    if P.n_whitematter_PCs > 0
+        PCs = whitematter_PCs(exp, us, runtype, r, 'motcorr', 'bbreg');
+        X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)]; %#ok<AGROW>
+    end
+    
+    % save nuissance regressors
+    if ~isempty(X_nuissance)
+        nuissance_regressor_files{i} = ...
+            [analysis_directory '/r' num2str(r) '_nuissance.mat'];
+        save(nuissance_regressor_files{i}, 'X_nuissance');
+    end
+    
+end
+
 % perform the second level analysis
 [matfile_second_level, matfile_first_level] = ...
     glm_second_level(data_matrix_files, para_files, parameter_file, ...
-    n_perms, analysis_directory, varargin{:});
+    n_perms, analysis_directory, nuissance_regressor_files, varargin{:});
 
 % plot reliability of contrast across runs
 glm_contrast_map_reliability(matfile_first_level,...
     analysis_directory, figure_directory, varargin{:});
 
-% plot reliability of response profile across runs
-glm_regressor_response_reliability(matfile_first_level,...
-    analysis_directory, figure_directory, varargin{:});
+% % plot reliability of response profile across runs
+% glm_regressor_response_reliability(matfile_first_level,...
+%     analysis_directory, figure_directory, varargin{:});
 
 if optInputs(varargin, 'noplot')
     return;
@@ -107,7 +126,7 @@ surf = grid2surface(G);
 color_range = [-5 5];
 
 if optInputs(varargin, 'color_range')
-    color_range = varargin{optInputs(varagin, 'color_range')+1};
+    color_range = varargin{optInputs(varargin, 'color_range')+1};
 end 
 
 n_contrasts = size(surf,3);
@@ -117,8 +136,8 @@ for i = 1:n_contrasts
     for q = 1:2
         
         figure_file = [figure_directory '/' 'pmap_' P.contrast_names{i} ...
-            '_' hemis{q} '_colrange_' num2str(color_range(1)) ...
-            '_' num2str(color_range(2)) '.png'];
+            '_' num2str(n_perms) 'perms' '_' hemis{q} '_colrange_'...
+            num2str(color_range(1)) '_' num2str(color_range(2)) '.png'];
         
         if ~exist(figure_file, 'file') || optInputs(varargin, 'overwrite')
             

@@ -1,6 +1,7 @@
 function [matfile_second_level, matfile_first_level] = ...
     glm_second_level(data_matrix_files, para_files, ...
-    parameter_file, n_perms, output_directory, varargin)
+    parameter_file, n_perms, output_directory, ...
+    nuissance_regressor_files, varargin)
 
 % global root_directory;
 % if ~exist([root_directory '/general-analysis-code'], 'dir')
@@ -17,6 +18,10 @@ if nargin < 5
     fprintf('No output directory specified\nSaving to working directory\m')
 end
 
+if nargin < 6
+    nuissance_regressor_files = cell(size(data_matrix_files));
+end
+
 % create output directory if not present
 if ~exist(output_directory, 'dir')
     mkdir(output_directory);
@@ -31,17 +36,33 @@ for i = 1:n_runs
     
     fprintf('Analyzing run %d\n',i);
     
+    %     % hash value specific to the inputs of glm_event_regression
+    %     args = {...
+    %         data_matrix_files{i}, para_files{i}, ...
+    %         parameter_file, n_perms, matfile_first_level{i}};
+    %     hash_value = DataHash(args);
+    
     % first level analysis
     matfile_first_level{i} = ...
-        [output_directory '/r' num2str(i) '_' num2str(n_perms) 'perms.mat'];
+        [output_directory '/r' num2str(i) ...
+        '_' num2str(n_perms) 'perms.mat'];
     
+    % first level analysis
+    %     matfile_first_level{i} = ...
+    %         [output_directory '/r' num2str(i) '_' num2str(n_perms) 'perms_without_demeaning.mat'];
+
     % check if the output file already exists, if not perform analysis
     if ~exist(matfile_first_level{i}, 'file') ...
-            || optInputs(varargin, 'overwrite') 
-        
+            || optInputs(varargin, 'overwrite')
+       
         % first level regression
         glm_event_regression(data_matrix_files{i}, para_files{i}, ...
-            parameter_file, n_perms, matfile_first_level{i} );
+            parameter_file, n_perms, matfile_first_level{i}, ...
+            nuissance_regressor_files{i});
+        
+        %         % first level regression
+        %         glm_event_regression_without_demeaning(data_matrix_files{i}, para_files{i}, ...
+        %             parameter_file, n_perms, matfile_first_level{i} );
     end
 end
 
@@ -53,10 +74,11 @@ end
 %% Second level, ols stats
 
 matfile_second_level = [output_directory '/allruns_' num2str(n_perms) 'perms.mat'];
+% matfile_second_level = [output_directory '/allruns_' num2str(n_perms) 'perms_without_demeaning.mat'];
 
 % check if the output file already exists
-if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite') 
-        
+if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite')
+    
     % load all runs
     % beta_contrast_allruns: runs x contrast x voxel
     for i = 1:n_runs
@@ -94,7 +116,7 @@ if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite')
     % clear variables no longer needed
     clear beta_contrast_allruns contrast_variance_allruns ...
         logP_fixed contrast_variance_fixed logP_random contrast_variance_random;
-
+    
 end
 
 %% Second level, permutation test
@@ -107,7 +129,7 @@ varnames = {matfile_vars(:).name};
 
 if ~any(strcmp('logP_permtest',varnames)) ...
         || ~any(strcmp('beta_contrast_permtest',varnames))
-
+    
     % average across runs
     for i = 1:n_runs
         X = load(matfile_first_level{i}, 'beta_contrast_permtest');
@@ -118,7 +140,7 @@ if ~any(strcmp('logP_permtest',varnames)) ...
                 + X.beta_contrast_permtest / n_runs;
         end
     end
-        
+    
     % estimate P value
     load(matfile_second_level, 'beta_contrast');
     logP_permtest = sig_via_null_gaussfit(beta_contrast, beta_contrast_permtest); %#ok<NASGU>

@@ -1,5 +1,5 @@
-function matfile = glm_event_regression(data_matrix_file, para_file, ...
-    parameter_file, n_perms, matfile, nuissance_regressor_file, varargin)
+function matfile = sigav(data_matrix_file, para_file, ...
+    parameter_file, n_perms, matfile, varargin)
 
 % Regression analysis with discrete events/blocks. Regressors are weighted
 % events, and the beta weights from the regression analysis are multiplied by a
@@ -27,13 +27,6 @@ if nargin < 5
         parameter_file, n_perms])];
 end
 
-if nargin < 6
-    nuissance_regressor_file = [];
-end
-
-P = load(parameter_file);
-P = glm_default_parameters(P);
-
 %% Format data matrix
 
 % load data matrix
@@ -46,38 +39,21 @@ clear data_matrix;
 voxels_without_NaN = all(~isnan(Y));
 Y = Y(:,voxels_without_NaN);
 
-% re-scale voxels to have mean 100
-% controls for errant scaling and ensures
-% beta weights are by default in units of
-% percent signal change
-% -> time x voxel
-Y = 100 * Y ./ ...
-    repmat(mean(Y), [size(Y,1),1]);
+%% Average response during the null period
 
-% demean data matrix
-% -> time x voxel
-Y = Y - repmat(mean(Y), [size(Y,1),1]);
-
-%% Condition matrix
-
-% collection of "boxcars" with ones during times when a given condition was "on"
-% -> time x condition
-boxcar_sr = 1;
-[B, event_names] = boxcar_from_para(para_file, boxcar_sr);
-
-% convolve boxcars with hrf
-% -> time x condition
-B = convolve_with_hrf(B, 'fsfast-gamma-BOLD', boxcar_sr);
-
-% interpolate condition matrix to the time-points at which
-% the data were collected
-% -> time x condition
-B = interp1( (0:length(B)-1)/boxcar_sr, B, (0:size(Y,1)-1)*TR );
+nullav = zeros([dims(1:3), length(win)]);
+x = strcmp('NULL',t.conds);
+ons = repmat(win, sum(x), 1) + repmat(t.onsets(x), 1, length(win));
+ons_tr = round(ons/TR+1);
+for j = 1:length(win)
+    nullav(:,:,:,j) = mean(func.vol(:,:,:,ons_tr(:,j)),4);
+end
 
 %% Regressor weights for condition matrix
 
 % weights applied to each condition for each regressor
 % -> condition x regressor
+P = load(parameter_file);
 n_events = size(B,2);
 n_regressors = length(P.regressor_names);
 W = zeros(n_events,n_regressors);
@@ -96,38 +72,20 @@ for i = 1:n_events
     W_one_per_condition(i,xi) = 1;
 end
 
-%% Nuissance regressors
-
-% load nuissance regressors from input file
-if ~isempty(nuissance_regressor_file)
-    load(nuissance_regressor_file, 'X_nuissance');
-else
-    X_nuissance = [];
-end
-
-% add linear trend regressor as a nuissance regressor
-if P.linear_trend
-    X_nuissance = [X_nuissance, zscore((1:size(Y,1))')];
-end
-n_nuissance = size(X_nuissance,2);
-
 %% Regression
 
 % regress weighted event matrix
 [beta_contrast, logP_ols, contrast_variance, df] = ...
-    regress_stats_ols( Y, [B * W, X_nuissance], ...
-    [P.contrast_weights; zeros(n_nuissance, size(P.contrast_weights,2))]); %#ok<ASGLU>
+    regress_stats_ols(Y, B * W, P.contrast_weights); %#ok<ASGLU>
 
 % separate beta weight for regressor
 % redundant with previous analysis if contrast matrix is the identity
 beta_one_per_regressor = ...
-    regress_stats_ols(Y, [B * W, X_nuissance], ...
-    [eye(n_regressors); zeros(n_nuissance, n_regressors)]);
+    regress_stats_ols(Y, B * W, eye(n_regressors)); %#ok<ASGLU>
 
 % separate beta weight for each condition
 beta_one_per_condition = ...
-    regress_stats_ols(Y, [B * W_one_per_condition, X_nuissance], ...
-    [eye(n_conditions); zeros(n_nuissance, n_conditions)]);
+    regress_stats_ols(Y, B * W_one_per_condition, eye(n_conditions)); %#ok<ASGLU>
 
 % fill in NaN entries
 beta_contrast = fillin_NaN_voxels(beta_contrast, voxels_without_NaN, 2);
@@ -201,6 +159,8 @@ Y = nan(dims);
 Y(xi{:}) = X;
 
 % v2
+
+
 
 
 

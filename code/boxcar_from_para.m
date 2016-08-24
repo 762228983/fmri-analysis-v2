@@ -4,7 +4,11 @@ function [boxcar_matrix, condition_names, t] = boxcar_from_para(para_file, sr)
 % 
 % n_conds = length(unique_conds);
 
+try
 P = read_para(para_file);
+catch
+    keyboard
+end
 condition_names = P.conds;  
 
 n_condition_onsets = length(P.onsets);
