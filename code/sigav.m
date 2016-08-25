@@ -1,30 +1,21 @@
 function matfile = sigav(data_matrix_file, para_file, ...
-    parameter_file, n_perms, matfile, varargin)
+    condition_names_file, matfile, onset_delay, offset_delay, varargin)
 
-% Regression analysis with discrete events/blocks. Regressors are weighted
-% events, and the beta weights from the regression analysis are multiplied by a
-% contrast vector/matrix. Statistics are computed using ordinary least squares
-% and a permutation test.
-% 
-% 2016-07-08: Generalized to have contrasts.
-
-%% Outside directories
-
-% global root_directory
-% if ~exist([root_directory '/general-analysis-code'], 'dir')
-%     error('general-analysis-code not found in root_directory');
-% end
-% addpath([root_directory '/general-analysis-code']);
-
-% default no permutation tests
-if nargin < 4
-    n_perms = 0;
-end
+% Calculates percent signal change for each condition by signal averaging a
+% fixed number of time-points after stimulus onset
 
 % file to save results to
-if nargin < 5
+if nargin < 4
     matfile = [pwd '/' DataHash([data_matrix_file, para_file, ...
         parameter_file, n_perms])];
+end
+
+if nargin < 5
+    onset_delay = 5;
+end
+
+if nargin < 6
+    offset_delay = 1;
 end
 
 %% Format data matrix
@@ -38,129 +29,60 @@ clear data_matrix;
 % remove voxels with NaN values
 voxels_without_NaN = all(~isnan(Y));
 Y = Y(:,voxels_without_NaN);
+n_voxels_without_NaN = sum(voxels_without_NaN);
 
-%% Average response during the null period
+% average signal for each voxel
+mean_signal = mean(Y); %#ok<NASGU>
 
-nullav = zeros([dims(1:3), length(win)]);
-x = strcmp('NULL',t.conds);
-ons = repmat(win, sum(x), 1) + repmat(t.onsets(x), 1, length(win));
-ons_tr = round(ons/TR+1);
-for j = 1:length(win)
-    nullav(:,:,:,j) = mean(func.vol(:,:,:,ons_tr(:,j)),4);
+%% Average response to each event
+
+% timing information about each event
+P = read_para(para_file);
+
+n_trials = length(P.onsets);
+n_TR = size(Y,1);
+t = (0:n_TR-1)*TR;
+response = nan(n_trials, n_voxels_without_NaN);
+for i = 1:n_trials
+    xi = t >= P.onsets(i) + onset_delay ...
+        & t <= P.onsets(i) + P.durs(i) + offset_delay;
+    response(i,:) = mean(Y(xi,:),1);
 end
+clear xi t nTR n_trials;
 
-%% Regressor weights for condition matrix
+%% Average across events from the same condition and convert to PSC
 
-% weights applied to each condition for each regressor
-% -> condition x regressor
-P = load(parameter_file);
-n_events = size(B,2);
-n_regressors = length(P.regressor_names);
-W = zeros(n_events,n_regressors);
-for i = 1:n_events
-    xi = strcmp(event_names{i}, P.condition_names);
-    if any(xi)
-        W(i,:) = P.regressor_weights(xi,:);
+% mean response to null
+xi = strcmp('NULL', P.conds);
+assert(sum(xi) > 0);
+null_response = mean(response(xi,:),1);
+
+% mean response to all other conditions
+load(condition_names_file, 'condition_names');
+n_conditions = length(condition_names); %#ok<USENS>
+condition_responses = nan(n_conditions, n_voxels_without_NaN);
+for i = 1:n_conditions
+    xi = strcmp(condition_names{i}, P.conds);
+    if ~isempty(xi)
+        condition_responses(i,:) = mean(response(xi,:),1);
     end
 end
 
-% weights with one regressor per condition
-n_conditions = length(P.condition_names);
-W_one_per_condition = zeros(n_events,n_conditions);
-for i = 1:n_events
-    xi = strcmp(event_names{i}, P.condition_names);
-    W_one_per_condition(i,xi) = 1;
-end
+X = repmat(null_response, n_conditions, 1);
+psc = 100*(condition_responses - X) ./ X;
+clear X;
 
-%% Regression
-
-% regress weighted event matrix
-[beta_contrast, logP_ols, contrast_variance, df] = ...
-    regress_stats_ols(Y, B * W, P.contrast_weights); %#ok<ASGLU>
-
-% separate beta weight for regressor
-% redundant with previous analysis if contrast matrix is the identity
-beta_one_per_regressor = ...
-    regress_stats_ols(Y, B * W, eye(n_regressors)); %#ok<ASGLU>
-
-% separate beta weight for each condition
-beta_one_per_condition = ...
-    regress_stats_ols(Y, B * W_one_per_condition, eye(n_conditions)); %#ok<ASGLU>
+%% Fill in NaN entries and save
 
 % fill in NaN entries
-beta_contrast = fillin_NaN_voxels(beta_contrast, voxels_without_NaN, 2);
-logP_ols = fillin_NaN_voxels(logP_ols, voxels_without_NaN, 2); %#ok<NASGU>
-contrast_variance = fillin_NaN_voxels(contrast_variance, voxels_without_NaN, 2); %#ok<NASGU>
-beta_one_per_condition = fillin_NaN_voxels(beta_one_per_condition, voxels_without_NaN, 2); %#ok<NASGU>
-beta_one_per_regressor = fillin_NaN_voxels(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
+psc = fillin_NaN_voxels(psc, voxels_without_NaN, 2); %#ok<NASGU>
+condition_responses = fillin_NaN_voxels(condition_responses, voxels_without_NaN, 2); %#ok<NASGU>
+null_response = fillin_NaN_voxels(null_response, voxels_without_NaN, 2); %#ok<NASGU>
+mean_signal = fillin_NaN_voxels(mean_signal, voxels_without_NaN, 2); %#ok<NASGU>
 
 % save
-save(matfile, 'voxels_without_NaN', 'beta_contrast', ...
-    'logP_ols', 'contrast_variance', 'beta_one_per_condition', ...
-    'beta_one_per_regressor', 'df', 'P', '-v7.3');
-
-%% Permutation test
-
-% number of permuted weights
-% optionally perform permutation test
-if n_perms > 0
-    
-    % can exclude null so that stimulus conditions only permuted
-    % with respect to other stimulus conditions
-    if optInputs(varargin, 'exclude-null')
-        xi = ~strcmp('NULL', event_names);
-        B = B(:,xi);
-        W = W(xi,:);
-        n_events = sum(xi);
-    end
-    
-    % estimate contrast from permutations
-    beta_contrast_permtest = nan([n_perms, length(P.contrast_names), sum(voxels_without_NaN)]);
-    for i = 1:n_perms
-        X = B * W(randperm(n_events),:);
-        beta_contrast_permtest(i,:,:) = regress_stats_ols(Y, X, P.contrast_weights);
-    end
-    clear X;
-    
-    % convert to signed logP value
-    try
-        logP_permtest = sig_via_null_gaussfit(...
-            beta_contrast(:,voxels_without_NaN), beta_contrast_permtest);
-    catch
-        keyboard;
-    end
-    
-    % fill in NaN entries
-    beta_contrast_permtest = fillin_NaN_voxels(...
-        beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
-    logP_permtest = fillin_NaN_voxels(logP_permtest, voxels_without_NaN, 2); %#ok<NASGU>
-        
-    % save results to matfile
-    save(matfile, 'beta_contrast_permtest', 'logP_permtest', '-append');
-    
-end
-
-function Y = fillin_NaN_voxels(X, voxels_without_NaNs, DIM)
-
-assert(size(X,DIM)==sum(voxels_without_NaNs));
-dims = size(X);
-dims(DIM) = length(voxels_without_NaNs);
-
-xi = cell(1,length(dims));
-for i = 1:length(dims)
-    if i == DIM
-        xi{i} = find(voxels_without_NaNs);
-    else
-        xi{i} = 1:dims(i);
-    end
-end
-
-Y = nan(dims);
-Y(xi{:}) = X;
-
-% v2
-
-
+save(matfile, 'psc', 'condition_responses', 'null_response', ...
+     'mean_signal', 'condition_names', '-v7.3');
 
 
 
