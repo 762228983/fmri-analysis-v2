@@ -1,5 +1,5 @@
-function matfile = glm_event_regression(data_matrix_file, para_file, ...
-    parameter_file, n_perms, matfile, nuissance_regressor_file, varargin)
+function MAT_file = glm_event_regression(data_matrix_file, para_file, ...
+    parameter_file, MAT_file, varargin)
 
 % Regression analysis with discrete events/blocks. Regressors are weighted
 % events, and the beta weights from the regression analysis are multiplied by a
@@ -9,24 +9,19 @@ function matfile = glm_event_regression(data_matrix_file, para_file, ...
 % 2016-07-08: Generalized to have contrasts, Sam NH
 % 
 % 2016-08-26: Add residual statistics, Sam NH
+% 
+% 2016-08-27: Modified how optional arguments are handled, current
+% implementation requires the MAT files the results are saved to, to be
+% specified
 
 %% Outside directories
 
-% default no permutation tests
-if nargin < 4
-    n_perms = 0;
-end
+% handle optional inputs and defaults
+I.n_perms = 0;
+I.nuissance_regressor_file = [];
+I = parse_optInputs_keyvalue(varargin, I);
 
-% file to save results to
-if nargin < 5
-    matfile = [pwd '/' DataHash([data_matrix_file, para_file, ...
-        parameter_file, n_perms])];
-end
-
-if nargin < 6
-    nuissance_regressor_file = [];
-end
-
+% default glm parameters
 P = load(parameter_file);
 P = glm_default_parameters(P);
 
@@ -134,7 +129,7 @@ beta_one_per_condition = fillin_NaN_voxels(beta_one_per_condition, voxels_withou
 beta_one_per_regressor = fillin_NaN_voxels(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
 
 % save
-save(matfile, 'voxels_without_NaN', 'beta_contrast', ...
+save(MAT_file, 'voxels_without_NaN', 'beta_contrast', ...
     'logP_ols', 'contrast_variance', 'beta_one_per_condition', ...
     'beta_one_per_regressor', 'df', 'P', 'residual', '-v7.3');
 
@@ -142,21 +137,21 @@ save(matfile, 'voxels_without_NaN', 'beta_contrast', ...
 
 % number of permuted weights
 % optionally perform permutation test
-if n_perms > 0
+if I.n_perms > 0
     
     % can exclude null so that stimulus conditions only permuted
     % with respect to other stimulus conditions
-    if optInputs(varargin, 'exclude-null')
-        xi = ~strcmp('NULL', event_names);
-        B = B(:,xi);
-        W = W(xi,:);
-        n_events = sum(xi);
-    end
+    %     if optInputs(varargin, 'exclude-null')
+    %         xi = ~strcmp('NULL', event_names);
+    %         B = B(:,xi);
+    %         W = W(xi,:);
+    %         n_events = sum(xi);
+    %     end
     
     % estimate contrasts and residusl from permutations
-    beta_contrast_permtest = nan([n_perms, length(P.contrast_names), sum(voxels_without_NaN)]);
-    residual_permtest = nan([n_perms, sum(voxels_without_NaN)]);
-    for i = 1:n_perms
+    beta_contrast_permtest = nan([I.n_perms, length(P.contrast_names), sum(voxels_without_NaN)]);
+    residual_permtest = nan([I.n_perms, sum(voxels_without_NaN)]);
+    for i = 1:I.n_perms
         X = B * W(randperm(n_events),:);
         [beta_contrast_permtest(i,:,:), ~, ~, ~, residual_permtest(i,:)] ...
             = regress_stats_ols(Y, [X, X_nuissance], ...
@@ -179,7 +174,7 @@ if n_perms > 0
     logP_residual_permtest = fillin_NaN_voxels(logP_residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
 
     % save results to matfile
-    save(matfile, 'beta_contrast_permtest', 'logP_permtest',...
+    save(MAT_file, 'beta_contrast_permtest', 'logP_permtest',...
         'residual_permtest', 'logP_residual_permtest', '-append');
     
 end

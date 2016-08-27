@@ -1,4 +1,4 @@
-function [MAT_file_second_level, MAT_files_first_level, ...
+function [matfile_second_level, matfile_first_level, ...
     analysis_directory, figure_directory] = ...
     glm_surf_grid(exp, us, runtype, fwhm, analysis_name, ...
     grid_spacing_mm, grid_roi, n_perms, varargin)
@@ -42,19 +42,18 @@ if ~exist(figure_directory, 'dir')
     mkdir(figure_directory);
 end
 
-%% Input and output files
+%% Create input files
 
 % create cell struction with para files and data files
 fprintf('Converting surface files to data matrix...\n');
-n_runs = length(I.runs);
+n_runs = length(runs);
 para_files = cell(1, n_runs);
 data_matrix_files = cell(1, n_runs);
 nuissance_regressor_files = cell(1, n_runs);
-MAT_files_first_level = cell(1, n_runs);
 
-for i = 1:length(I.runs)
+for i = 1:length(runs)
     
-    r = I.runs(i);
+    r = runs(i);
     
     % read weighting file
     para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
@@ -101,31 +100,23 @@ for i = 1:length(I.runs)
         save(nuissance_regressor_files{i}, 'X_nuissance');
     end
     
-    % file to save results of individual run analysis
-    MAT_files_first_level{i} = ...
-        [analysis_directory '/r' num2str(r) ...
-        '_' num2str(I.n_perms) 'perms.mat'];
-    
 end
-
-% file to save results of second level analysis pooling across runs
-MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) ...
-        '_' num2str(I.n_perms) 'perms.mat'];
 
 %% Run analysis
 
 % perform the second level analysis
-glm_second_level(data_matrix_files, para_files, parameter_file, ...
-    MAT_file_second_level, MAT_files_first_level, ...
-    'n_perms', n_perms, 'overwrite', I.overwrite, ...
-    'nuissance_regressor_files', nuissance_regressor_files);
+[matfile_second_level, matfile_first_level] = ...
+    glm_second_level(data_matrix_files, para_files, parameter_file, ...
+    'n_perms', n_perms, 'output_directory', analysis_directory, ...
+    'nuissance_regressor_files', nuissance_regressor_files, ...
+    'overwrite', I.overwrite);
 
 % plot reliability of contrast across runs
-glm_contrast_map_reliability(MAT_files_first_level,...
+glm_contrast_map_reliability(matfile_first_level,...
     analysis_directory, figure_directory, 'overwrite', I.overwrite);
 
 % % plot reliability of response profile across runs
-% glm_regressor_response_reliability(MAT_files_first_level,...
+% glm_regressor_response_reliability(matfile_first_level,...
 %     analysis_directory, figure_directory, 'overwrite', I.overwrite);
 
 if ~I.plot
@@ -136,9 +127,9 @@ end
 
 % select first or second level analysis
 if length(data_matrix_files) > 1
-    matfile = MAT_file_second_level;
+    matfile = matfile_second_level;
 else
-    matfile = MAT_files_first_level{1};
+    matfile = matfile_first_level{1};
 end
 
 % grid and interpolate a stat of interest to the surface
