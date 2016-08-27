@@ -6,15 +6,11 @@ function matfile = glm_event_regression(data_matrix_file, para_file, ...
 % contrast vector/matrix. Statistics are computed using ordinary least squares
 % and a permutation test.
 % 
-% 2016-07-08: Generalized to have contrasts.
+% 2016-07-08: Generalized to have contrasts, Sam NH
+% 
+% 2016-08-26: Add residual statistics, Sam NH
 
 %% Outside directories
-
-% global root_directory
-% if ~exist([root_directory '/general-analysis-code'], 'dir')
-%     error('general-analysis-code not found in root_directory');
-% end
-% addpath([root_directory '/general-analysis-code']);
 
 % default no permutation tests
 if nargin < 4
@@ -114,7 +110,7 @@ n_nuissance = size(X_nuissance,2);
 %% Regression
 
 % regress weighted event matrix
-[beta_contrast, logP_ols, contrast_variance, df] = ...
+[beta_contrast, logP_ols, contrast_variance, df, residual] = ...
     regress_stats_ols( Y, [B * W, X_nuissance], ...
     [P.contrast_weights; zeros(n_nuissance, size(P.contrast_weights,2))]); %#ok<ASGLU>
 
@@ -133,13 +129,14 @@ beta_one_per_condition = ...
 beta_contrast = fillin_NaN_voxels(beta_contrast, voxels_without_NaN, 2);
 logP_ols = fillin_NaN_voxels(logP_ols, voxels_without_NaN, 2); %#ok<NASGU>
 contrast_variance = fillin_NaN_voxels(contrast_variance, voxels_without_NaN, 2); %#ok<NASGU>
+residual = fillin_NaN_voxels(residual, voxels_without_NaN, 2);
 beta_one_per_condition = fillin_NaN_voxels(beta_one_per_condition, voxels_without_NaN, 2); %#ok<NASGU>
 beta_one_per_regressor = fillin_NaN_voxels(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
 
 % save
 save(matfile, 'voxels_without_NaN', 'beta_contrast', ...
     'logP_ols', 'contrast_variance', 'beta_one_per_condition', ...
-    'beta_one_per_regressor', 'df', 'P', '-v7.3');
+    'beta_one_per_regressor', 'df', 'P', 'residual', '-v7.3');
 
 %% Permutation test
 
@@ -156,29 +153,34 @@ if n_perms > 0
         n_events = sum(xi);
     end
     
-    % estimate contrast from permutations
+    % estimate contrasts and residusl from permutations
     beta_contrast_permtest = nan([n_perms, length(P.contrast_names), sum(voxels_without_NaN)]);
+    residual_permtest = nan([n_perms, sum(voxels_without_NaN)]);
     for i = 1:n_perms
         X = B * W(randperm(n_events),:);
-        beta_contrast_permtest(i,:,:) = regress_stats_ols(Y, X, P.contrast_weights);
+        [beta_contrast_permtest(i,:,:), ~, ~, ~, residual_permtest(i,:)] ...
+            = regress_stats_ols(Y, [X, X_nuissance], ...
+            [P.contrast_weights; zeros(n_nuissance, size(P.contrast_weights,2))]);
+
     end
     clear X;
     
     % convert to signed logP value
-    try
-        logP_permtest = sig_via_null_gaussfit(...
-            beta_contrast(:,voxels_without_NaN), beta_contrast_permtest);
-    catch
-        keyboard;
-    end
+    logP_permtest = sig_via_null_gaussfit(...
+        beta_contrast(:,voxels_without_NaN), beta_contrast_permtest);
+    logP_residual_permtest = sig_via_null_gaussfit(...
+        residual(:,voxels_without_NaN), residual_permtest);
+    logP_residual_permtest = -logP_residual_permtest;
     
     % fill in NaN entries
-    beta_contrast_permtest = fillin_NaN_voxels(...
-        beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
+    beta_contrast_permtest = fillin_NaN_voxels(beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
+    residual_permtest = fillin_NaN_voxels(residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
     logP_permtest = fillin_NaN_voxels(logP_permtest, voxels_without_NaN, 2); %#ok<NASGU>
-        
+    logP_residual_permtest = fillin_NaN_voxels(logP_residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
+
     % save results to matfile
-    save(matfile, 'beta_contrast_permtest', 'logP_permtest', '-append');
+    save(matfile, 'beta_contrast_permtest', 'logP_permtest',...
+        'residual_permtest', 'logP_residual_permtest', '-append');
     
 end
 

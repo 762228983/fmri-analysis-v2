@@ -3,11 +3,7 @@ function [matfile_second_level, matfile_first_level] = ...
     parameter_file, n_perms, output_directory, ...
     nuissance_regressor_files, varargin)
 
-% global root_directory;
-% if ~exist([root_directory '/general-analysis-code'], 'dir')
-%     error('general-analysis-code not found in root_directory');
-% end
-% addpath([root_directory '/general-analysis-code']);
+% 2016-08-26: Added residual statistics, Sam NH
 
 % optional arguments
 if nargin < 4
@@ -47,10 +43,6 @@ for i = 1:n_runs
         [output_directory '/r' num2str(i) ...
         '_' num2str(n_perms) 'perms.mat'];
     
-    % first level analysis
-    %     matfile_first_level{i} = ...
-    %         [output_directory '/r' num2str(i) '_' num2str(n_perms) 'perms_without_demeaning.mat'];
-
     % check if the output file already exists, if not perform analysis
     if ~exist(matfile_first_level{i}, 'file') ...
             || optInputs(varargin, 'overwrite')
@@ -60,9 +52,6 @@ for i = 1:n_runs
             parameter_file, n_perms, matfile_first_level{i}, ...
             nuissance_regressor_files{i});
         
-        %         % first level regression
-        %         glm_event_regression_without_demeaning(data_matrix_files{i}, para_files{i}, ...
-        %             parameter_file, n_perms, matfile_first_level{i} );
     end
 end
 
@@ -74,7 +63,6 @@ end
 %% Second level, ols stats
 
 matfile_second_level = [output_directory '/allruns_' num2str(n_perms) 'perms.mat'];
-% matfile_second_level = [output_directory '/allruns_' num2str(n_perms) 'perms_without_demeaning.mat'];
 
 % check if the output file already exists
 if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite')
@@ -84,24 +72,28 @@ if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite')
     for i = 1:n_runs
         
         % load first level analysis
-        X = load(matfile_first_level{i},'beta_contrast','contrast_variance','P','df');
+        X = load(matfile_first_level{i},'beta_contrast',...
+            'contrast_variance','P','df','residual');
         
         if i == 1
             beta_contrast_allruns = nan([n_runs, size(X.beta_contrast)]);
             contrast_variance_allruns = nan([n_runs, size(X.contrast_variance)]);
+            residual_allruns = nan([n_runs, size(X.residual)]);
             dfs = nan(n_runs,1);
-            P = X.P;
+            P = X.P;  %#ok<NASGU>
         end
         
         beta_contrast_allruns(i,:,:) = X.beta_contrast;
         contrast_variance_allruns(i,:,:) = X.contrast_variance;
+        residual_allruns(i,:,:) = X.residual;
         dfs(i) = X.df;
         
     end
     clear X;
     
-    % set beta contrast to the average across runs
-    beta_contrast = squeeze_dims(mean(beta_contrast_allruns),1);
+    % set beta contrast and residual to the average across runs
+    beta_contrast = squeeze_dims( mean(beta_contrast_allruns, 1), 1);
+    residual = squeeze_dims( mean(residual_allruns, 1), 1);
     
     % ols stats across runs
     [logP_fixed, contrast_variance_fixed] = ...
@@ -111,7 +103,7 @@ if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite')
     
     % save results
     save(matfile_second_level, 'beta_contrast', 'logP_fixed', 'logP_random', ...
-        'contrast_variance_fixed', 'contrast_variance_random', 'P');
+        'contrast_variance_fixed', 'contrast_variance_random', 'P', 'residual');
     
     % clear variables no longer needed
     clear beta_contrast_allruns contrast_variance_allruns ...
@@ -128,25 +120,32 @@ matfile_vars = whos('-file', matfile_second_level);
 varnames = {matfile_vars(:).name};
 
 if ~any(strcmp('logP_permtest',varnames)) ...
-        || ~any(strcmp('beta_contrast_permtest',varnames))
+        || ~any(strcmp('beta_contrast_permtest',varnames)) ...
+        || ~any(strcmp('residual_permtest',varnames)) ...
+        || ~any(strcmp('logP_residual_permtest',varnames))
     
     % average across runs
     for i = 1:n_runs
-        X = load(matfile_first_level{i}, 'beta_contrast_permtest');
+        X = load(matfile_first_level{i}, ...
+            'beta_contrast_permtest', 'residual_permtest');
         if i == 1
             beta_contrast_permtest = X.beta_contrast_permtest / n_runs;
+            residual_permtest = X.residual_permtest / n_runs;
         else
             beta_contrast_permtest = beta_contrast_permtest ...
                 + X.beta_contrast_permtest / n_runs;
+            residual_permtest = residual_permtest + X.residual_permtest / n_runs;
         end
     end
     
     % estimate P value
-    load(matfile_second_level, 'beta_contrast');
+    load(matfile_second_level, 'beta_contrast', 'residual');
     logP_permtest = sig_via_null_gaussfit(beta_contrast, beta_contrast_permtest); %#ok<NASGU>
+    logP_residual_permtest = -sig_via_null_gaussfit(residual, residual_permtest); %#ok<NASGU>
     
     % save results
-    save(matfile_second_level, 'logP_permtest', 'beta_contrast_permtest', '-append');
+    save(matfile_second_level, 'logP_permtest', 'beta_contrast_permtest', ...
+        'residual_permtest', 'logP_residual_permtest', '-append');
     
 end
 

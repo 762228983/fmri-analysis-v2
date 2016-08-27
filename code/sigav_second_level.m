@@ -60,7 +60,11 @@ if ~exist(matfile_second_level, 'file') || overwrite
         end
         
         % error check
-        assert(sum(~isnan(condition_responses(:)))>0);
+        try
+            assert(sum(~isnan(condition_responses(:)))>0);
+        catch
+            keyboard;
+        end
         
         % assign
         mean_signal_allruns(:,:,i) = mean_signal;
