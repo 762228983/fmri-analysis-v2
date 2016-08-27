@@ -3,11 +3,21 @@ function [matfile_second_level, matfile_first_level, ...
     glm_surf_grid(exp, us, runtype, fwhm, analysis_name, ...
     grid_spacing_mm, grid_roi, n_perms, varargin)
 
+
+% 2016-08-27: Modified how optional arguments are handled
+
 global root_directory;
 
-if nargin < 8
-    n_perms = 1e3;
-end
+%% Optional arguments
+
+% optional arguments and defaults
+I.overwrite = false;
+I.plot = false;
+I.runs = read_runs(exp, us, runtype);
+I.color_range = [-5 5];
+I = parse_optInputs_keyvalue(varargin, I);
+
+%% Directories / setup
 
 % analysis directory
 analysis_directory = [root_directory  '/' exp '/analysis/glm/' analysis_name ...
@@ -32,9 +42,10 @@ if ~exist(figure_directory, 'dir')
     mkdir(figure_directory);
 end
 
+%% Create input files
+
 % create cell struction with para files and data files
 fprintf('Converting surface files to data matrix...\n');
-runs = read_runs(exp, us, runtype);
 n_runs = length(runs);
 para_files = cell(1, n_runs);
 data_matrix_files = cell(1, n_runs);
@@ -49,7 +60,7 @@ for i = 1:length(runs)
         '/' runtype  '_r' num2str(r) '.par'];
     
     % TR
-    TR = read_functional_scan_parameters(exp,us,runtype,r,varargin); %#ok<NASGU>
+    TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
     
     % preprocessing directory with files in fsaverage space
     preproc_fsaverage_directory = [root_directory '/' exp '/analysis/preprocess' ...
@@ -64,7 +75,7 @@ for i = 1:length(runs)
     data_matrix_files{i} = ...
         strrep(grid_file, '.mat', '_unwrapped_data_matrix.mat');
     
-    if ~exist(data_matrix_files{i}, 'file') || optInputs(varargin, 'overwrite')
+    if ~exist(data_matrix_files{i}, 'file') || I.overwrite
                 
         % reformat to voxel x datapoint/timepoint
         load(grid_file, 'G');
@@ -91,22 +102,28 @@ for i = 1:length(runs)
     
 end
 
+%% Run analysis
+
 % perform the second level analysis
 [matfile_second_level, matfile_first_level] = ...
     glm_second_level(data_matrix_files, para_files, parameter_file, ...
-    n_perms, analysis_directory, nuissance_regressor_files, varargin{:});
+    'n_perms', n_perms, 'output_directory', analysis_directory, ...
+    'nuissance_regressor_files', nuissance_regressor_files, ...
+    'overwrite', I.overwrite);
 
 % plot reliability of contrast across runs
 glm_contrast_map_reliability(matfile_first_level,...
-    analysis_directory, figure_directory, varargin{:});
+    analysis_directory, figure_directory, 'overwrite', I.overwrite);
 
 % % plot reliability of response profile across runs
 % glm_regressor_response_reliability(matfile_first_level,...
-%     analysis_directory, figure_directory, varargin{:});
+%     analysis_directory, figure_directory, 'overwrite', I.overwrite);
 
-if optInputs(varargin, 'noplot')
+if ~I.plot
     return;
 end
+
+%% Plot
 
 % select first or second level analysis
 if length(data_matrix_files) > 1
@@ -122,13 +139,6 @@ X = load(matfile, stat_to_plot);
 G = matrix2grid(X.(stat_to_plot)', G);
 surf = grid2surface(G);
 
-% plot surface
-color_range = [-5 5];
-
-if optInputs(varargin, 'color_range')
-    color_range = varargin{optInputs(varargin, 'color_range')+1};
-end 
-
 n_contrasts = size(surf,3);
 load(matfile, 'P');
 for i = 1:n_contrasts
@@ -137,9 +147,9 @@ for i = 1:n_contrasts
         
         figure_file = [figure_directory '/' 'pmap_' P.contrast_names{i} ...
             '_' num2str(n_perms) 'perms' '_' hemis{q} '_colrange_'...
-            num2str(color_range(1)) '_' num2str(color_range(2)) '.png'];
+            num2str(I.color_range(1)) '_' num2str(I.color_range(2)) '.png'];
         
-        if ~exist(figure_file, 'file') || optInputs(varargin, 'overwrite')
+        if ~exist(figure_file, 'file') || I.overwrite
             
             if ~exist('figh', 'var') % Plot figures with outlines of standard ROIs
                 close all;
@@ -149,11 +159,13 @@ for i = 1:n_contrasts
             end
            
             % plot surface map
-            plot_fsaverage_1D_overlay(surf(:,q,i),hemis{q},'parula',color_range,figh);
+            plot_fsaverage_1D_overlay(surf(:,q,i),hemis{q},'parula',I.color_range,figh);
             export_fig(figure_file,'-png','-r100','-nocrop');
         end
     end
 end
+
+
 
 
 % % binary map with relative cutoff
@@ -163,7 +175,7 @@ end
 % [~,xi] = unique(Cx);
 % x = x(xi);
 % Cx = Cx(xi);
-% color_range = interp1(Cx,x,[0.025 0.975]);
+% I.color_range = interp1(Cx,x,[0.025 0.975]);
 % 
 % % plot
 % figure;

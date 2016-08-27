@@ -3,11 +3,11 @@ function corr_test_retest = glm_regressor_response_reliability(...
 
 % global root_directory;
 % 
-% % add analysis code directory, throw error if it doesn't exist
-% if ~exist([root_directory '/general-analysis-code'], 'dir')
-%     error('general-analysis-code directory is not in the root_directory');
-% end
-% addpath([root_directory '/general-analysis-code']);
+% 2016-08-27: Modified how optional arguments are handled
+
+% optional arguments and defaults
+I.overwrite = false;
+I = parse_optInputs_keyvalue(varargin, I);
 
 % load weights from each run
 n_runs = length(matfile_first_level);
@@ -43,7 +43,7 @@ n_data_set_sizes = length(data_set_sizes);
 n_smps = 1e3;
 mat_file = [analysis_directory ...
     '/regressor-response-reliability_' num2str(n_smps) 'smps.mat'];
-if ~exist(mat_file, 'file') || optInputs(varargin, 'overwrite')
+if ~exist(mat_file, 'file') || I.overwrite
     fprintf('Sampling regressor response reliability...\n');
     corr_test_retest = nan(n_smps, n_data_set_sizes, n_regressors);
     for i = 1:n_data_set_sizes
@@ -82,7 +82,7 @@ n_data_set_sizes = n_data_set_sizes+1; %#ok<NASGU>
 % plot
 figure_fname = [figure_directory '/' ...
     'regressor-response-reliability_' num2str(n_smps) 'smps.pdf'];
-if ~exist(figure_fname, 'file') || optInputs(varargin, 'overwrite')
+if ~exist(figure_fname, 'file') || I.overwrite
     figure;
     errorbar_plot_from_samples(corr_test_retest, log2(data_set_sizes));
     set(gca, 'XTick', log2(data_set_sizes), 'XTickLabel', data_set_sizes);

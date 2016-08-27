@@ -1,26 +1,19 @@
 function [matfile_second_level, matfile_first_level] = ...
-    glm_second_level(data_matrix_files, para_files, ...
-    parameter_file, n_perms, output_directory, ...
-    nuissance_regressor_files, varargin)
+    glm_second_level(data_matrix_files, para_files, parameter_file, varargin)
 
 % 2016-08-26: Added residual statistics, Sam NH
+% 
+% 2016-08-27: Modified how optional arguments are handled
 
-% optional arguments
-if nargin < 4
-    n_perms = 0;
-end
-if nargin < 5
-    output_directory = pwd;
-    fprintf('No output directory specified\nSaving to working directory\m')
-end
-
-if nargin < 6
-    nuissance_regressor_files = cell(size(data_matrix_files));
-end
+I.n_perms = 0;
+I.output_directory = pwd;
+I.nuissance_regressor_files = cell(size(data_matrix_files));
+I.overwrite = false;
+I = parse_optInputs_keyvalue(varargin, I);
 
 % create output directory if not present
-if ~exist(output_directory, 'dir')
-    mkdir(output_directory);
+if ~exist(I.output_directory, 'dir')
+    mkdir(I.output_directory);
 end
 
 %% First level / run-based analysis
@@ -35,22 +28,22 @@ for i = 1:n_runs
     %     % hash value specific to the inputs of glm_event_regression
     %     args = {...
     %         data_matrix_files{i}, para_files{i}, ...
-    %         parameter_file, n_perms, matfile_first_level{i}};
+    %         parameter_file, I.n_perms, matfile_first_level{i}};
     %     hash_value = DataHash(args);
     
     % first level analysis
     matfile_first_level{i} = ...
-        [output_directory '/r' num2str(i) ...
-        '_' num2str(n_perms) 'perms.mat'];
+        [I.output_directory '/r' num2str(i) ...
+        '_' num2str(I.n_perms) 'perms.mat'];
     
     % check if the output file already exists, if not perform analysis
     if ~exist(matfile_first_level{i}, 'file') ...
-            || optInputs(varargin, 'overwrite')
+            || I.overwrite
        
         % first level regression
         glm_event_regression(data_matrix_files{i}, para_files{i}, ...
-            parameter_file, n_perms, matfile_first_level{i}, ...
-            nuissance_regressor_files{i});
+            parameter_file, I.n_perms, matfile_first_level{i}, ...
+            I.nuissance_regressor_files{i});
         
     end
 end
@@ -62,10 +55,10 @@ end
 
 %% Second level, ols stats
 
-matfile_second_level = [output_directory '/allruns_' num2str(n_perms) 'perms.mat'];
+matfile_second_level = [I.output_directory '/allruns_' num2str(I.n_perms) 'perms.mat'];
 
 % check if the output file already exists
-if ~exist(matfile_second_level, 'file') || optInputs(varargin, 'overwrite')
+if ~exist(matfile_second_level, 'file') || I.overwrite
     
     % load all runs
     % beta_contrast_allruns: runs x contrast x voxel
@@ -113,7 +106,7 @@ end
 
 %% Second level, permutation test
 
-if n_perms == 0
+if I.n_perms == 0
     return;
 end
 matfile_vars = whos('-file', matfile_second_level);

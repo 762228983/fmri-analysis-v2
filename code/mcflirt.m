@@ -3,14 +3,21 @@ function mcflirt(exp,us,runtype,r,varargin)
 % function mcflirt(exp,us,runtype,r,varargin)
 % 
 % motion corrects data using FSL's mcflirt algorithm
+% 
+% 2016-08-27: Modified how optional arguments are handled
 
 global root_directory
 
+% optional arguments and defaults
+I.overwrite = false;
+I.plot = true;
+I = parse_optInputs_keyvalue(varargin, I);
+
 % fsl version for this experiment
-[fsl_version, ~] = read_version_info(exp,varargin{:});
+[fsl_version, ~] = read_version_info(exp);
 
 % functional volume to which the run is motion-corrected
-[~, ~, nTR] = read_functional_scan_parameters(exp,us,runtype,r,varargin{:});
+[~, ~, nTR] = read_functional_scan_parameters(exp,us,runtype,r);
 reference_frame = floor(nTR/2);
 
 % raw data, un-motion corrected
@@ -34,24 +41,20 @@ example_func_file = [preprocessing_directory '/example_func.nii.gz'];
 mcflirt_file = [preprocessing_directory '/motcorr.nii.gz'];
 
 % create reference volume
-if ~exist(example_func_file, 'file') || optInputs(varargin, 'overwrite');
+if ~exist(example_func_file, 'file') || I.overwrite
     unix_fsl(fsl_version, ['fslroi ' input_file ' ' example_func_file ' ' num2str(reference_frame) ' 1']);
 end
 
 % motion correct
-if ~exist(mcflirt_file,'file') || optInputs(varargin, 'overwrite');
+if ~exist(mcflirt_file,'file') || I.overwrite
     unix_fsl(fsl_version, ['mcflirt -in ' input_file ' -out ' strrep(mcflirt_file,'.nii.gz','') ' -reffile ' example_func_file ' -mats -plots -rmsrel -rmsabs']);
 end
 
 % plot rms motion, see motion_summary for more extensive plots
-if optInputs(varargin, 'plot')
+if I.plot
     fid = fopen([preprocessing_directory '/motcorr_rel.rms']);
     x = textscan(fid,'%f'); fclose(fid);
-    if optInputs(varargin, 'monkey')
-      relrms = x{1}(:)/2.8571;
-    else
-      relrms = x{1}(:);
-    end
+    relrms = x{1};
     fprintf('\n\n%s, run %d\n',runtype,r);
     fprintf('Mean: %.3f\n',mean(relrms(:)));
     fprintf('Time points > 0.5 mm: %d\n',sum(relrms(:)>0.5));

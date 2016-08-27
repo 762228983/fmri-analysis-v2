@@ -4,14 +4,19 @@ function convert_functional_dicoms_to_nifti(exp, us, runtype, r, varargin)
 
 global root_directory
 
-% optional arguments and defaults
-I.overwrite = false;
-I = parse_optInputs_keyvalue(varargin, I);
+% optional inputs
+possible_keys = {'overwrite'};
+I = parse_optInputs_keyvalue(varargin, possible_keys);
+
+% default values of optional inputs
+if ~isfield(I, 'overwrite')
+    I.overwrite = false;
+end
 
 data_directory = [root_directory '/' exp '/data/'];
 
 % run numbers
-[all_runs, all_seqids, all_scanids] = read_runs(exp,us,runtype);
+[all_runs, all_seqids, all_scanids] = read_runs(exp,us,runtype,varargin{:});
 
 % sequence and scan id for this run
 xi = ismember(all_runs,r);
@@ -35,7 +40,7 @@ end
 % separate out disdaqs at the beginning and end of the run
 if ~strcmp('struct',runtype)
     
-    [TR, TA, nTR, n_disdaqs] = read_functional_scan_parameters(exp,us,runtype,r); %#ok<ASGLU>
+    [TR, TA, nTR, n_disdaqs] = read_functional_scan_parameters(exp,us,runtype,r,varargin{:}); %#ok<ASGLU>
     
     disdaq_directory = [dicoms_directory '/disdaqs'];
     if ~exist(disdaq_directory,'dir');
@@ -69,7 +74,7 @@ end
 
 % convert file
 reference_dicom_file = [dicoms_directory '/' strrep(first_dicom_file.name, '-1-1', ['-' num2str(seqid) '-' num2str(n_disdaqs+1)])];
-if ~exist(nifti_file,'file') || I.overwrite
+if ~exist(nifti_file,'file') || optInputs(varargin, 'overwrite');
     fprintf(['mri_convert --in_type siemens_dicom --out_type nii '  reference_dicom_file '  ' nifti_file '\n']);
     unix(['mri_convert --in_type siemens_dicom --out_type nii '  reference_dicom_file '  ' nifti_file]);
 end

@@ -3,11 +3,18 @@ function bet_func(exp,us,runtype,r,favalue,input_filetype,varargin)
 % function bet_func(exp,us,runtype,r,varargin)
 % 
 % Computes a brain mask using FSL's bet2 algorithm
+% 
+% 2016-08-27: Modified how optional arguments are handled
 
 global root_directory
 
+% optional arguments and defaults
+I.overwrite = false;
+I.quick_overwrite = false;
+I = parse_optInputs_keyvalue(varargin, I);
+
 % version of fsl to use
-[fsl_version, ~] = read_version_info(exp,varargin{:});
+[fsl_version, ~] = read_version_info(exp);
 
 % preprocessing directory
 preprocessing_directory = [root_directory '/' exp '/analysis/preprocess/usub' num2str(us) '/' runtype '_r' num2str(r)];
@@ -25,7 +32,7 @@ mean_func_file = [preprocessing_directory '/' 'mean_func.nii.gz'];
 bet_file = [preprocessing_directory '/' 'bet.nii.gz'];
 
 % uses mean of functional file as input
-if ~exist(bet_file,'file') || optInputs(varargin, 'overwrite')
+if ~exist(bet_file,'file') || I.overwrite
     unix_fsl(fsl_version,['fslmaths '  input_file ' -Tmean ' mean_func_file]);
     unix_fsl(fsl_version,['bet2 ' mean_func_file ' ' bet_file ' -f ' num2str(favalue) ' -m']);
 end
@@ -35,7 +42,7 @@ thresh_file = [preprocessing_directory '/' 'brain_thresh.nii.gz'];
 mode_file = [preprocessing_directory '/' 'mode.txt'];
 
 % post-processing
-if ~exist(mask_file,'file') || optInputs(varargin, 'overwrite')
+if ~exist(mask_file,'file') || I.overwrite
     
     % create mask
     y = unix_fsl(fsl_version,['fslstats ' bet_file ' -p 2 -p 98']);
@@ -59,7 +66,7 @@ if ~exist(mask_file,'file') || optInputs(varargin, 'overwrite')
 end
 
 % quick overwrite to check that new fa value improves brain extraction
-if optInputs(varargin, 'quick_overwrite')
+if I.quick_overwrite
     % bet2
     unix_fsl(fsl_version,['bet2 ' mean_func_file ' ' bet_file ' -f ' num2str(favalue) ' -m']);
     
@@ -75,6 +82,6 @@ end
 % apply mask to example_func file
 example_func_file = [preprocessing_directory '/example_func.nii.gz'];
 example_func_bet_file = [preprocessing_directory '/example_func_brain_masked.nii.gz'];
-if ~exist(example_func_bet_file,'file') || optInputs(varargin, 'overwrite')
+if ~exist(example_func_bet_file,'file') || I.overwrite
     unix_fsl(fsl_version, ['fslmaths ' example_func_file ' -mas ' mask_file ' ' example_func_bet_file]);
 end

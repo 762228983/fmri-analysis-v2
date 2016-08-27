@@ -1,9 +1,15 @@
 function convert_anatomical_dicoms_to_nifti(exp, us, varargin)
 
+% 2016-08-27: Modified how optional arguments are handled
+
 global root_directory
 
+% optional arguments and defaults
+I.overwrite = false;
+I = parse_optInputs_keyvalue(varargin, I);
+
 % run numbers
-[~, seqid, scanid] = read_runs(exp,us,'struct',varargin{:});
+[~, seqid, scanid] = read_runs(exp,us,'struct');
 
 % nifti directory
 anatomical_directory = [root_directory '/anatomicals/us' num2str(us)];
@@ -21,7 +27,7 @@ end
 
 % convert file
 reference_dicom_file = [dicoms_directory '/' strrep(first_dicom_file.name, '-1-1', ['-' num2str(seqid) '-1'])];
-if ~exist(anatomical_file,'file') || optInputs(varargin, 'overwrite');
+if ~exist(anatomical_file,'file') || I.overwrite
     fprintf(['mri_convert --in_type siemens_dicom --out_type nii '  reference_dicom_file '  ' anatomical_file '\n']);
     unix(['mri_convert --in_type siemens_dicom --out_type nii '  reference_dicom_file '  ' anatomical_file]);
 end

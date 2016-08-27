@@ -1,11 +1,17 @@
 function resample_func2surface(exp,us,runtype,r,hemi,volname,regtype,varargin)
 
+% 2016-08-27: Modified how optional arguments are handled
+
 projfrac = [0 1];
 
 global root_directory;
 
+% optional arguments and defaults
+I.overwrite = false;
+I = parse_optInputs_keyvalue(varargin, I);
+
 % FSL and freesurfer versions
-[~, freesurfer_version] = read_version_info(exp,varargin{:});
+[~, freesurfer_version] = read_version_info(exp);
 
 interpmethod = 'trilinear';
 subjid = ['us' num2str(us)];
@@ -24,6 +30,6 @@ end
 % resample to surface
 registration_file = [preprocessing_directory '/reg_' regtype '/example_func2highres.dat'];
 refrence_volume = ['~/freesurfer/' subjid '/mri/brain.mgz'];
-if ~exist(surface_file,'file')|| optInputs(varargin,'overwrite')
+if ~exist(surface_file,'file')|| I.overwrite
   unix_freesurfer_version(freesurfer_version, ['mri_vol2surf --ref ' refrence_volume ' --mov ' volume_file ' --reg ' registration_file ' --o ' surface_file ' --hemi ' hemi ' --surf white --interp ' interpmethod ' --projfrac-avg ' num2str(projfrac(1)) ' ' num2str(projfrac(2)) ' 0.05']);
 end
