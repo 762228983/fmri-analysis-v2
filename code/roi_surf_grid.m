@@ -40,11 +40,14 @@ function [psc, conditions, n_voxels_per_run_and_threshold] = ...
 % 
 % 2016-08-26: Created, Sam NH
 
+I.verbose = true;
+I = parse_optInputs_keyvalue(varargin, I);
+
 % default parameters
 test_info = ...
-    default_test_parameters(test_info, us, varargin{:});
+    default_test_parameters(test_info, us);
 localizer_info = ...
-    default_localizer_parameters(localizer_info, us, test_info, varargin{:});
+    default_localizer_parameters(localizer_info, us, test_info);
 
 % number of thresholds for each localizer
 n_localizers = length(localizer_info);
@@ -64,7 +67,7 @@ n_voxels_per_run_and_threshold = ...
 
 for k = 1:length(test_info.runs) % loop through runs
     
-    if ~optInputs(varargin, 'suppress-output')
+    if I.verbose
         % print information about this localizer
         fprintf('Test: %s, run %d\n', test_info.runtype, test_info.runs(k));
         drawnow;
@@ -120,7 +123,7 @@ for k = 1:length(test_info.runs) % loop through runs
         end
         
         % print the runs being used
-        if ~optInputs(varargin, 'suppress-output')
+        if I.verbose
             fprintf('Localizer: %s, runs %s\n', ...
                 localizer_info(j).contrast, sprintf('%d',localizer_runs_to_use));
             drawnow;
@@ -131,7 +134,7 @@ for k = 1:length(test_info.runs) % loop through runs
         % stat to localizer voxels with
         localizer_contrast_stat_matrix(j,:) = localizer_stat(...
             localizer_info(j), us, localizer_runs_to_use, ...
-            fwhm, grid_spacing_mm, grid_roi, varargin{:});
+            fwhm, grid_spacing_mm, grid_roi);
         
     end
     
@@ -219,7 +222,8 @@ switch test_info.psc_method
         [~,MAT_file_first_level] = sigav_surf_grid(...
             test_info.exp, us, test_info.runtype, ...
             fwhm, grid_spacing_mm, grid_roi, ...
-            test_info.condition_names_file, 'runs', test_run);
+            test_info.condition_names_file, ...
+            'runs', test_run, 'overwrite', test_info.overwrite);
         assert(length(MAT_file_first_level)==1);
         load(MAT_file_first_level{1}, 'psc');
         voxel_psc = psc;
@@ -230,7 +234,8 @@ switch test_info.psc_method
             test_info.exp, us, test_info.runtype, ...
             fwhm, test_info.analysis_name, ...
             grid_spacing_mm, grid_roi, test_info.n_perms, ...
-            'runs', test_run, 'plot_surf', false, 'plot_reliability', false);
+            'runs', test_run, 'overwrite', test_info.overwrite, ...
+            'plot_surf', false, 'plot_reliability', false);
         assert(length(MAT_file_first_level)==1);
         load(MAT_file_first_level{1}, 'beta_one_per_regressor');
         voxel_psc = beta_one_per_regressor;
@@ -240,14 +245,14 @@ end
 % helper function that find the appropriate file with p-values
 function loc_stat = localizer_stat(...
     localizer_info, us, localizer_runs_to_use, ...
-    fwhm, grid_spacing_mm, grid_roi, varargin)
+    fwhm, grid_spacing_mm, grid_roi)
 
 MAT_file_second_level = glm_surf_grid(...
     localizer_info.exp, us, localizer_info.runtype, ...
     fwhm, localizer_info.analysis_name, ...
     grid_spacing_mm, grid_roi, localizer_info.n_perms, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
-    'plot_reliability', false);
+    'plot_reliability', false, 'overwrite', localizer_info.overwrite);
 
 if localizer_info.n_perms >= 100
     load(MAT_file_second_level, 'logP_permtest');
@@ -263,8 +268,8 @@ xi = strcmp(localizer_info.contrast, P.contrast_names);
 assert(sum(xi)==1);
 loc_stat = loc_stat(xi,:);
 
-function localizer_info = ...
-    default_localizer_parameters(localizer_info, us, test_info, varargin)
+function localizer_info = default_localizer_parameters(...
+    localizer_info, us, test_info)
 
 n_localizers = length(localizer_info);
 
@@ -280,7 +285,7 @@ for j = 1:n_localizers
     
     if ~isfield(localizer_info(j), 'runs') || isempty(localizer_info(j).runs)
         localizer_info(j).runs = read_runs(...
-            localizer_info(j).exp, us, localizer_info(j).runtype, varargin{:});
+            localizer_info(j).exp, us, localizer_info(j).runtype);
     end
     
     if ~isfield(localizer_info(j), 'max_runs_to_use') || ...
@@ -297,19 +302,29 @@ for j = 1:n_localizers
             isempty(localizer_info(j).use_nearest_or_farthest)
         localizer_info(j).use_nearest_or_farthest = 'nearest';
     end
+    
+    if ~isfield(localizer_info(j), 'overwrite')
+        localizer_info(j).overwrite = false;
+    end
+
 end
 
-function test_info = default_test_parameters(test_info, us, varargin)
+function test_info = default_test_parameters(test_info, us)
 
 % runs to use
 if ~isfield(test_info, 'runs')
     test_info.runs = read_runs(...
-        test_info.exp, us, test_info.runtype, varargin{:});
+        test_info.exp, us, test_info.runtype);
 end
 
 % default use signal averaging to measure each voxel's response
 if ~isfield(test_info, 'psc_method')
     test_info.psc_method = 'sigav';
+end
+
+% test info
+if ~isfield(test_info, 'overwrite')
+    test_info.overwrite = false;
 end
 
 load(test_info.condition_names_file, 'condition_names');
