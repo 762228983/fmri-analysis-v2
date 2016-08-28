@@ -1,22 +1,12 @@
-function matfile = sigav(data_matrix_file, para_file, ...
-    condition_names_file, matfile, onset_delay, offset_delay, varargin)
+function matfile = sigav(data_matrix_file, para_file, condition_names_file, matfile)
 
 % Calculates percent signal change for each condition by signal averaging a
 % fixed number of time-points after stimulus onset
 
-% file to save results to
-if nargin < 4
-    matfile = [pwd '/' DataHash([data_matrix_file, para_file, ...
-        parameter_file, n_perms])];
-end
-
-if nargin < 5
-    onset_delay = 5;
-end
-
-if nargin < 6
-    offset_delay = 1;
-end
+% optional arguments and defaults
+I.onset_delay = 5;
+I.offset_delay = 1;
+I = parse_optInputs_keyvalue(varargin, I);
 
 %% Format data matrix
 
@@ -32,7 +22,7 @@ Y = Y(:,voxels_without_NaN);
 n_voxels_without_NaN = sum(voxels_without_NaN);
 
 % average signal for each voxel
-mean_signal = mean(Y); %#ok<NASGU>
+mean_signal = mean(Y); 
 
 %% Average response to each event
 
@@ -44,8 +34,8 @@ n_TR = size(Y,1);
 t = (0:n_TR-1)*TR;
 response = nan(n_trials, n_voxels_without_NaN);
 for i = 1:n_trials
-    xi = t >= P.onsets(i) + onset_delay ...
-        & t <= P.onsets(i) + P.durs(i) + offset_delay;
+    xi = t >= P.onsets(i) + I.onset_delay ...
+        & t <= P.onsets(i) + P.durs(i) + I.offset_delay;
     response(i,:) = mean(Y(xi,:),1);
 end
 clear xi t nTR n_trials;

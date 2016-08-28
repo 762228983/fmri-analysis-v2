@@ -90,8 +90,8 @@ end
 %% Nuissance regressors
 
 % load nuissance regressors from input file
-if ~isempty(nuissance_regressor_file)
-    load(nuissance_regressor_file, 'X_nuissance');
+if ~isempty(I.nuissance_regressor_file)
+    load(I.nuissance_regressor_file, 'X_nuissance');
 else
     X_nuissance = [];
 end
