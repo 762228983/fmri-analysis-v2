@@ -83,14 +83,12 @@ for i = 1:length(I.runs)
     
     % file to save results of individual run analysis
     MAT_files_first_level{i} = ...
-        [analysis_directory '/r' num2str(r) ...
-        '_' num2str(n_perms) 'perms.mat'];
+        [analysis_directory '/r' num2str(r)];
     
 end
 
 % file to save results of second level analysis pooling across runs
-MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) ...
-        '_' num2str(n_perms) 'perms.mat'];
+MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) '.mat'];
 
 sigav_second_level(...
     data_matrix_files, para_files, condition_names_file, ...
