@@ -47,11 +47,7 @@ for i = 1:n_runs
     end
     
     % error check
-    try
-        assert(sum(~isnan(condition_responses(:)))>0);
-    catch
-        keyboard;
-    end
+    assert(sum(~isnan(condition_responses(:)))>0);
     
     % assign
     mean_signal_allruns(:,:,i) = mean_signal;

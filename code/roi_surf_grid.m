@@ -37,10 +37,11 @@ function [psc, conditions, n_voxels_per_run_and_threshold] = ...
 % localizer_info(2).threshold_type = 'relative';
 % localizer_info(2).thresholds = 0.05:0.05:0.3;
 % localizer_info(2).max_runs_to_use = [];
-% 
+%
 % 2016-08-26: Created, Sam NH
 
 I.verbose = true;
+I.anatomical_mask = '';
 I = parse_optInputs_keyvalue(varargin, I);
 
 % default parameters
@@ -77,12 +78,21 @@ for k = 1:length(test_info.runs) % loop through runs
     % condition x voxel matrix
     voxel_psc = test_psc(test_info, us, test_info.runs(k), ...
         fwhm, grid_roi, grid_spacing_mm);
-
+        
+    % create the mask
+    n_voxels = size(voxel_psc,2);
+    if isempty(I.anatomical_mask)
+        mask = true(1,n_voxels);
+    else
+        mask = label2grid(I.anatomical_mask, grid_roi, grid_spacing_mm);
+    end
+    mask = mask > 0.99;
+    
     % check there are no exactly zero values
     assert(~any(voxel_psc(:)==0));
         
+    
     % read in the localizer contrast matrix
-    n_voxels = size(voxel_psc,2);
     localizer_contrast_stat_matrix = nan(n_localizers, n_voxels);
     for j = 1:n_localizers
         
@@ -154,7 +164,8 @@ for k = 1:length(test_info.runs) % loop through runs
         % logical all is applied to conditions for each voxel
         voxels_in_roi = find(...
             all(~isnan(voxel_psc),1) ...
-            & all(~isnan(localizer_contrast_stat_matrix),1));
+            & all(~isnan(localizer_contrast_stat_matrix),1) ...
+            & mask);
         
         % loop through the localizers
         for j = 1:n_localizers
