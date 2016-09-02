@@ -5,6 +5,8 @@ function [MAT_file_second_level, MAT_files_first_level, ...
 
 
 % 2016-08-27: Modified how optional arguments are handled
+% 
+% 2016-08-31: Made the prefix of the para files an optional argument
 
 global root_directory;
 
@@ -16,6 +18,7 @@ I.plot_surf = false;
 I.plot_reliability = true;
 I.runs = read_runs(exp, us, runtype);
 I.color_range = [-5 5];
+I.para_prefix = runtype;
 I = parse_optInputs_keyvalue(varargin, I);
 
 %% Directories / setup
@@ -24,7 +27,7 @@ I = parse_optInputs_keyvalue(varargin, I);
 analysis_directory = [root_directory  '/' exp '/analysis/glm/' analysis_name ...
     '/fsaverage_smooth-' num2str(fwhm) 'mm' ...
     '_' 'grid-' num2str(grid_spacing_mm) 'mm' ...
-    '_' grid_roi '/usub' num2str(us) '/'];
+    '_' grid_roi '/usub' num2str(us)];
 
 % condition weight file
 parameter_file = [root_directory '/' exp '/analysis/glm' ...
@@ -59,7 +62,7 @@ for i = 1:length(I.runs)
     
     % read weighting file
     para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' runtype  '_r' num2str(r) '.par'];
+        '/' I.para_prefix  '_r' num2str(r) '.par'];
     
     % TR
     TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>

@@ -2,7 +2,7 @@ function [psc, conditions, n_voxels_per_run_and_threshold] = ...
     roi_surf_grid(  us, grid_roi, grid_spacing_mm, ...
     localizer_info, test_info, fwhm, varargin )
 
-% Primary top-level script for performing ROI
+% Primary top-level script for performing ROI analyses
 %
 % fprintf('v2\n'); drawnow;
 
@@ -77,7 +77,7 @@ for k = 1:length(test_info.runs) % loop through runs
     % matrix of psc values for each voxels
     % condition x voxel matrix
     voxel_psc = test_psc(test_info, us, test_info.runs(k), ...
-        fwhm, grid_roi, grid_spacing_mm);
+        fwhm, grid_spacing_mm, grid_roi);
         
     % create the mask
     n_voxels = size(voxel_psc,2);
@@ -90,7 +90,6 @@ for k = 1:length(test_info.runs) % loop through runs
     
     % check there are no exactly zero values
     assert(~any(voxel_psc(:)==0));
-        
     
     % read in the localizer contrast matrix
     localizer_contrast_stat_matrix = nan(n_localizers, n_voxels);
@@ -225,7 +224,7 @@ conditions = test_info.conditions;
 
 % find/compute desired psc file
 function voxel_psc = test_psc(test_info, us, test_run, ...
-    fwhm, grid_roi, grid_spacing_mm)
+    fwhm, grid_spacing_mm, grid_roi)
 
 switch test_info.psc_method
     case 'sigav'
@@ -234,7 +233,8 @@ switch test_info.psc_method
             test_info.exp, us, test_info.runtype, ...
             fwhm, grid_spacing_mm, grid_roi, ...
             test_info.condition_names_file, ...
-            'runs', test_run, 'overwrite', test_info.overwrite);
+            'runs', test_run, 'overwrite', test_info.overwrite, ...
+            'para_prefix', test_info.para_prefix);
         assert(length(MAT_file_first_level)==1);
         load(MAT_file_first_level{1}, 'psc');
         voxel_psc = psc;
@@ -246,12 +246,20 @@ switch test_info.psc_method
             fwhm, test_info.analysis_name, ...
             grid_spacing_mm, grid_roi, test_info.n_perms, ...
             'runs', test_run, 'overwrite', test_info.overwrite, ...
-            'plot_surf', false, 'plot_reliability', false);
+            'plot_surf', false, 'plot_reliability', false, ...
+            'para_prefix', test_info.para_prefix);
         assert(length(MAT_file_first_level)==1);
         load(MAT_file_first_level{1}, 'beta_one_per_regressor');
         voxel_psc = beta_one_per_regressor;
         
+    otherwise
+        
+        error('No matching case');
+        
 end
+
+fprintf('First level file\n%s\n', MAT_file_first_level{1}); drawnow;
+
 
 % helper function that find the appropriate file with p-values
 function loc_stat = localizer_stat(...
@@ -263,7 +271,10 @@ MAT_file_second_level = glm_surf_grid(...
     fwhm, localizer_info.analysis_name, ...
     grid_spacing_mm, grid_roi, localizer_info.n_perms, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
-    'plot_reliability', false, 'overwrite', localizer_info.overwrite);
+    'plot_reliability', false, 'overwrite', localizer_info.overwrite, ...
+    'para_prefix', localizer_info.para_prefix);
+
+fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
 
 if localizer_info.n_perms >= 100
     load(MAT_file_second_level, 'logP_permtest');
@@ -317,6 +328,10 @@ for j = 1:n_localizers
     if ~isfield(localizer_info(j), 'overwrite')
         localizer_info(j).overwrite = false;
     end
+    
+    if ~isfield(localizer_info(j), 'para_prefix')
+        localizer_info(j).para_prefix = localizer_info(j).runtype;
+    end
 
 end
 
@@ -336,6 +351,11 @@ end
 % test info
 if ~isfield(test_info, 'overwrite')
     test_info.overwrite = false;
+end
+
+% prefix to the para files
+if ~isfield(test_info, 'para_prefix')
+    test_info.para_prefix = test_info.runtype;
 end
 
 load(test_info.condition_names_file, 'condition_names');

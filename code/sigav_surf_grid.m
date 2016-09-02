@@ -10,15 +10,22 @@ function [MAT_file_second_level, MAT_files_first_level,...
 % 2016-08-25 - Modified to work with sigav_second_level.m, Sam NH
 %
 % 2016-08-27: Modified how optional arguments are handled
+% 
+% 2016-08-31: Made the prefix of the para files an optional argument
 
 global root_directory;
 
-% optional arguments and defaults
+% default parameters
 I.overwrite = false;
 I.onset_delay = 5;
 I.offset_delay = 1;
 I.remove_run_offsets = true;
+I.para_prefix = runtype;
+
+% default runs
 I.runs = read_runs(exp, us, runtype);
+
+% set optional inputs
 I = parse_optInputs_keyvalue(varargin, I);
 
 % analysis directory
@@ -27,7 +34,7 @@ analysis_directory = [...
     '/fsaverage_smooth-' num2str(fwhm) 'mm' ...
     '_' 'grid-' num2str(grid_spacing_mm) 'mm' ...
     '_' grid_roi '_onsdelay' num2str(I.onset_delay) ...
-    '_offdelay' num2str(I.offset_delay) '/usub' num2str(us) '/'];
+    '_offdelay' num2str(I.offset_delay) '/usub' num2str(us)];
 
 % analysis directory
 figure_directory = strrep(analysis_directory, 'analysis', 'figures');
@@ -50,12 +57,12 @@ for i = 1:length(I.runs)
     
     r = I.runs(i);
     
-    % read weighting file
-    para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' runtype  '_r' num2str(r) '.par'];
-    
     % TR
     TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
+    
+    % para file
+    para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
+        '/' I.para_prefix  '_r' num2str(r) '.par'];
     
     % preprocessing directory with files in fsaverage space
     preproc_fsaverage_directory = [root_directory '/' exp '/analysis/preprocess' ...
@@ -83,7 +90,7 @@ for i = 1:length(I.runs)
     
     % file to save results of individual run analysis
     MAT_files_first_level{i} = ...
-        [analysis_directory '/r' num2str(r)];
+        [analysis_directory '/r' num2str(r) '.mat'];
     
 end
 
