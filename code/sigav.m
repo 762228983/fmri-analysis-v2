@@ -1,4 +1,5 @@
-function matfile = sigav(data_matrix_file, para_file, condition_names_file, matfile)
+function MAT_file = sigav(data_matrix_file, para_file, ...
+    condition_names_file, MAT_file, varargin)
 
 % Calculates percent signal change for each condition by signal averaging a
 % fixed number of time-points after stimulus onset
@@ -71,7 +72,7 @@ null_response = fillin_NaN_voxels(null_response, voxels_without_NaN, 2); %#ok<NA
 mean_signal = fillin_NaN_voxels(mean_signal, voxels_without_NaN, 2); %#ok<NASGU>
 
 % save
-save(matfile, 'psc', 'condition_responses', 'null_response', ...
+save(MAT_file, 'psc', 'condition_responses', 'null_response', ...
      'mean_signal', 'condition_names', '-v7.3');
 
 

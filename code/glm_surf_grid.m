@@ -1,10 +1,12 @@
 function [MAT_file_second_level, MAT_files_first_level, ...
-    analysis_directory, figure_directory] = ...
+    P, analysis_directory, figure_directory] = ...
     glm_surf_grid(exp, us, runtype, fwhm, analysis_name, ...
     grid_spacing_mm, grid_roi, n_perms, varargin)
 
 
 % 2016-08-27: Modified how optional arguments are handled
+% 
+% 2016-08-31: Made the prefix of the para files an optional argument
 
 global root_directory;
 
@@ -12,9 +14,11 @@ global root_directory;
 
 % optional arguments and defaults
 I.overwrite = false;
-I.plot = false;
+I.plot_surf = false;
+I.plot_reliability = true;
 I.runs = read_runs(exp, us, runtype);
 I.color_range = [-5 5];
+I.para_prefix = runtype;
 I = parse_optInputs_keyvalue(varargin, I);
 
 %% Directories / setup
@@ -23,7 +27,7 @@ I = parse_optInputs_keyvalue(varargin, I);
 analysis_directory = [root_directory  '/' exp '/analysis/glm/' analysis_name ...
     '/fsaverage_smooth-' num2str(fwhm) 'mm' ...
     '_' 'grid-' num2str(grid_spacing_mm) 'mm' ...
-    '_' grid_roi '/usub' num2str(us) '/'];
+    '_' grid_roi '/usub' num2str(us)];
 
 % condition weight file
 parameter_file = [root_directory '/' exp '/analysis/glm' ...
@@ -33,7 +37,7 @@ P = glm_default_parameters(P);
 
 % analysis directory
 figure_directory = strrep(analysis_directory, 'analysis', 'figures');
-    
+
 % create this directories if not present
 if ~exist(analysis_directory, 'dir')
     mkdir(analysis_directory);
@@ -58,7 +62,7 @@ for i = 1:length(I.runs)
     
     % read weighting file
     para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' runtype  '_r' num2str(r) '.par'];
+        '/' I.para_prefix  '_r' num2str(r) '.par'];
     
     % TR
     TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
@@ -77,7 +81,7 @@ for i = 1:length(I.runs)
         strrep(grid_file, '.mat', '_unwrapped_data_matrix.mat');
     
     if ~exist(data_matrix_files{i}, 'file') || I.overwrite
-                
+        
         % reformat to voxel x datapoint/timepoint
         load(grid_file, 'G');
         data_matrix = grid2matrix(G); %#ok<NASGU>
@@ -110,7 +114,7 @@ end
 
 % file to save results of second level analysis pooling across runs
 MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) ...
-        '_' num2str(n_perms) 'perms.mat'];
+    '_' num2str(n_perms) 'perms.mat'];
 
 %% Run analysis
 
@@ -120,19 +124,25 @@ glm_second_level(data_matrix_files, para_files, parameter_file, ...
     'n_perms', n_perms, 'overwrite', I.overwrite, ...
     'nuissance_regressor_files', nuissance_regressor_files);
 
-% plot reliability of contrast across runs
-glm_contrast_map_reliability(MAT_files_first_level,...
-    analysis_directory, figure_directory, 'overwrite', I.overwrite);
+%% Reliability measures
 
-% % plot reliability of response profile across runs
-% glm_regressor_response_reliability(MAT_files_first_level,...
-%     analysis_directory, figure_directory, 'overwrite', I.overwrite);
-
-if ~I.plot
-    return;
+if n_runs > 1 && I.plot_reliability
+    
+    % plot reliability of contrast across runs
+    glm_contrast_map_reliability(MAT_files_first_level,...
+        analysis_directory, figure_directory, 'overwrite', I.overwrite);
+    
+    % % plot reliability of response profile across runs
+    % glm_regressor_response_reliability(MAT_files_first_level,...
+    %     analysis_directory, figure_directory, 'overwrite', I.overwrite);
+    
 end
 
-%% Plot
+%% Plot surface
+
+if ~I.plot_surf
+    return;
+end
 
 % select first or second level analysis
 if length(data_matrix_files) > 1
@@ -166,7 +176,7 @@ for i = 1:n_contrasts
                 pos = get(figh,'Position');
                 set(figh, 'Position', [pos(1:2), 800 800]);
             end
-           
+            
             % plot surface map
             plot_fsaverage_1D_overlay(surf(:,q,i),hemis{q},'parula',I.color_range,figh);
             export_fig(figure_file,'-png','-r100','-nocrop');
@@ -185,7 +195,7 @@ end
 % x = x(xi);
 % Cx = Cx(xi);
 % I.color_range = interp1(Cx,x,[0.025 0.975]);
-% 
+%
 % % plot
 % figure;
 % subplot(1,2,1);
@@ -206,11 +216,11 @@ end
 % for i = 1:length(stats_to_grid_and_resample)
 %     X = load(matfile, stats_to_grid_and_resample{i}); %#ok<NASGU>
 %     eval([stats_to_grid_and_resample{i} ...
-%         ' = matrix2grid(X.' stats_to_grid_and_resample{i} ''', G);']);   
+%         ' = matrix2grid(X.' stats_to_grid_and_resample{i} ''', G);']);
 %     if i == 1
 %         save(matfile_gridded, stats_to_grid_and_resample{i});
 %     else
 %         save(matfile_gridded, '-append', stats_to_grid_and_resample{i});
-%     end    
+%     end
 % end
 % clear X;

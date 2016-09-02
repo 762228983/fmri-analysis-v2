@@ -25,7 +25,7 @@ for i = 1:n_runs
     if ~exist(MAT_files_first_level{i}, 'file') || I.overwrite
         sigav(data_matrix_files{i}, para_files{i}, ...
             condition_names_file, MAT_files_first_level{i}, ...
-            I.onset_delay, I.offset_delay);
+            'onset_delay', I.onset_delay, 'offset_delay', I.offset_delay);
     end
     
 end
@@ -47,11 +47,7 @@ for i = 1:n_runs
     end
     
     % error check
-    try
-        assert(sum(~isnan(condition_responses(:)))>0);
-    catch
-        keyboard;
-    end
+    assert(sum(~isnan(condition_responses(:)))>0);
     
     % assign
     mean_signal_allruns(:,:,i) = mean_signal;
