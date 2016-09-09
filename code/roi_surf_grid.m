@@ -76,7 +76,7 @@ for k = 1:length(test_info.runs) % loop through runs
     
     % matrix of psc values for each voxels
     % condition x voxel matrix
-    voxel_psc = test_psc(test_info, us, test_info.runs(k), ...
+    voxel_psc = psc_single_run(test_info, us, test_info.runs(k), ...
         fwhm, grid_spacing_mm, grid_roi);
         
     % create the mask
@@ -222,45 +222,6 @@ n_voxels_per_run_and_threshold = reshape(...
 % return conditions used
 conditions = test_info.conditions;
 
-% find/compute desired psc file
-function voxel_psc = test_psc(test_info, us, test_run, ...
-    fwhm, grid_spacing_mm, grid_roi)
-
-switch test_info.psc_method
-    case 'sigav'
-        
-        [~,MAT_file_first_level] = sigav_surf_grid(...
-            test_info.exp, us, test_info.runtype, ...
-            fwhm, grid_spacing_mm, grid_roi, ...
-            test_info.condition_names_file, ...
-            'runs', test_run, 'overwrite', test_info.overwrite, ...
-            'para_prefix', test_info.para_prefix);
-        assert(length(MAT_file_first_level)==1);
-        load(MAT_file_first_level{1}, 'psc');
-        voxel_psc = psc;
-        
-    case 'glm'
-        
-        [~,MAT_file_first_level] = glm_surf_grid(...
-            test_info.exp, us, test_info.runtype, ...
-            fwhm, test_info.analysis_name, ...
-            grid_spacing_mm, grid_roi, test_info.n_perms, ...
-            'runs', test_run, 'overwrite', test_info.overwrite, ...
-            'plot_surf', false, 'plot_reliability', false, ...
-            'para_prefix', test_info.para_prefix);
-        assert(length(MAT_file_first_level)==1);
-        load(MAT_file_first_level{1}, 'beta_one_per_regressor');
-        voxel_psc = beta_one_per_regressor;
-        
-    otherwise
-        
-        error('No matching case');
-        
-end
-
-fprintf('First level file\n%s\n', MAT_file_first_level{1}); drawnow;
-
-
 % helper function that find the appropriate file with p-values
 function loc_stat = localizer_stat(...
     localizer_info, us, localizer_runs_to_use, ...
@@ -335,28 +296,4 @@ for j = 1:n_localizers
 
 end
 
-function test_info = default_test_parameters(test_info, us)
 
-% runs to use
-if ~isfield(test_info, 'runs')
-    test_info.runs = read_runs(...
-        test_info.exp, us, test_info.runtype);
-end
-
-% default use signal averaging to measure each voxel's response
-if ~isfield(test_info, 'psc_method')
-    test_info.psc_method = 'sigav';
-end
-
-% test info
-if ~isfield(test_info, 'overwrite')
-    test_info.overwrite = false;
-end
-
-% prefix to the para files
-if ~isfield(test_info, 'para_prefix')
-    test_info.para_prefix = test_info.runtype;
-end
-
-load(test_info.condition_names_file, 'condition_names');
-test_info.conditions = condition_names;
