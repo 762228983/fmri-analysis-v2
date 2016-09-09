@@ -13,7 +13,6 @@ function glm_second_level(data_matrix_files, para_files, ...
 
 % handle optional inputs and defaults
 I.n_perms = 0;
-I.nuissance_regressor_files = cell(size(data_matrix_files));
 I = parse_optInputs_keyvalue(varargin, I);
 
 % number of total runs

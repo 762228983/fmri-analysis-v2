@@ -15,6 +15,7 @@ function MAT_file = sigav_glm(data_matrix_file, para_file, parameter_file, ...
 % optional arguments and defaults
 I.onset_delay = 5;
 I.offset_delay = 1;
+I.n_perms = 0;
 I = parse_optInputs_keyvalue(varargin, I);
 
 % analysis parameters

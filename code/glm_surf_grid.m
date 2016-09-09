@@ -14,6 +14,9 @@ function [MAT_file_second_level, MAT_files_first_level, ...
 %
 % 2016-09-09: This function now directly calls first level analysis script
 % glm_event_regression.m, and handles whether or not to overwrite files
+% 
+% 2016-09-09: Generalized glm_surf_grid so that it can also handled GLMs run on
+% signal averaged responses
 
 global root_directory;
 
@@ -27,18 +30,22 @@ I.runs = read_runs(exp, us, runtype);
 I.color_range = [-5 5];
 I.para_prefix = runtype;
 I.n_perms = 0;
+I.analysis_type = 'glm';
+I.onset_delay = 5; % only applicable for signal averaging
+I.offset_delay = 1; % only applicable for signal averaging
 I = parse_optInputs_keyvalue(varargin, I);
 
 %% Directories / setup
 
 % analysis directory
-analysis_directory = [root_directory  '/' exp '/analysis/glm/' analysis_name ...
+analysis_directory = [root_directory  '/' exp '/analysis' ...
+    '/' I.analysis_type '/' analysis_name ...
     '/fsaverage_smooth-' num2str(fwhm) 'mm' ...
     '_' 'grid-' num2str(grid_spacing_mm) 'mm' ...
     '_' grid_roi '/usub' num2str(us)];
 
 % condition weight file
-parameter_file = [root_directory '/' exp '/analysis/glm' ...
+parameter_file = [root_directory '/' exp '/analysis/' I.analysis_type ...
     '/' analysis_name '/parameters.mat'];
 P = load(parameter_file);
 P = glm_default_parameters(P);
@@ -61,7 +68,6 @@ fprintf('Converting surface files to data matrix...\n');
 n_runs = length(I.runs);
 para_files = cell(1, n_runs);
 data_matrix_files = cell(1, n_runs);
-nuissance_regressor_files = cell(1, n_runs);
 MAT_files_first_level = cell(1, n_runs);
 perm_MAT_files_first_level = cell(1, n_runs);
 
@@ -116,28 +122,42 @@ for i = 1:length(I.runs)
             
         end
         
-        % add white matter regressors
-        X_nuissance = [];
-        if P.n_whitematter_PCs > 0
-            PCs = whitematter_PCs(exp, us, runtype, r, 'motcorr', 'bbreg');
-            X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)]; %#ok<AGROW>
+        switch I.analysis_type
+            case 'glm'
+                
+                % add white matter regressors
+                X_nuissance = [];
+                if P.n_whitematter_PCs > 0
+                    PCs = whitematter_PCs(exp, us, runtype, r, 'motcorr', 'bbreg');
+                    X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)]; %#ok<AGROW>
+                end
+                
+                % save nuissance regressors
+                if ~isempty(X_nuissance)
+                    nuissance_regressor_file = ...
+                        [analysis_directory '/r' num2str(r) '_nuissance.mat'];
+                    save(nuissance_regressor_file, 'X_nuissance');
+                end
+                
+                % first level regression
+                glm_event_regression(data_matrix_files{i}, para_files{i}, ...
+                    parameter_file, MAT_files_first_level{i}, ...
+                    'n_perms', I.n_perms, 'nuissance_regressor_file', ...
+                    nuissance_regressor_file);
+                
+            case 'sigav-glm'
+                
+                % first level regression
+                sigav_glm(data_matrix_files{i}, para_files{i}, ...
+                    parameter_file, MAT_files_first_level{i}, ...
+                    'onset_delay', I.onset_delay, 'offset_delay', I.offset_delay,...
+                    'n_perms', I.n_perms);
+           
+            otherwise
+                error('No matching case');
+                
         end
-        
-        % save nuissance regressors
-        if ~isempty(X_nuissance)
-            nuissance_regressor_files{i} = ...
-                [analysis_directory '/r' num2str(r) '_nuissance.mat'];
-            save(nuissance_regressor_files{i}, 'X_nuissance');
-        end
-        
-        
-        % first level regression
-        glm_event_regression(data_matrix_files{i}, para_files{i}, ...
-            parameter_file, MAT_files_first_level{i}, ...
-            'n_perms', I.n_perms, 'nuissance_regressor_file', ...
-            I.nuissance_regressor_files{i});
     end
-    
 end
 
 %% Second level analysis
