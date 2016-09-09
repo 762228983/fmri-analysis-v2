@@ -23,7 +23,8 @@ Y = Y(:,voxels_without_NaN);
 n_voxels_without_NaN = sum(voxels_without_NaN);
 
 % average signal for each voxel
-mean_signal = mean(Y); 
+% -> 1 x voxels
+mean_signal = mean(Y,1); 
 
 %% Average response to each event
 
