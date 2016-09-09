@@ -1,12 +1,15 @@
 function [MAT_file_second_level, MAT_files_first_level, ...
     P, analysis_directory, figure_directory] = ...
     glm_surf_grid(exp, us, runtype, fwhm, analysis_name, ...
-    grid_spacing_mm, grid_roi, n_perms, varargin)
+    grid_spacing_mm, grid_roi, varargin)
 
 
 % 2016-08-27: Modified how optional arguments are handled
 % 
 % 2016-08-31: Made the prefix of the para files an optional argument
+% 
+% 2016-09-09: n_perms made an optional argument, permutation tests are saved as
+% a separate MAT file, requiring small changes to this wrapper function
 
 global root_directory;
 
@@ -19,6 +22,7 @@ I.plot_reliability = true;
 I.runs = read_runs(exp, us, runtype);
 I.color_range = [-5 5];
 I.para_prefix = runtype;
+I.n_perms = 0;
 I = parse_optInputs_keyvalue(varargin, I);
 
 %% Directories / setup
@@ -107,21 +111,19 @@ for i = 1:length(I.runs)
     
     % file to save results of individual run analysis
     MAT_files_first_level{i} = ...
-        [analysis_directory '/r' num2str(r) ...
-        '_' num2str(n_perms) 'perms.mat'];
+        [analysis_directory '/r' num2str(r) '.mat'];
     
 end
 
 % file to save results of second level analysis pooling across runs
-MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) ...
-    '_' num2str(n_perms) 'perms.mat'];
+MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) '.mat'];
 
 %% Run analysis
 
 % perform the second level analysis
 glm_second_level(data_matrix_files, para_files, parameter_file, ...
     MAT_file_second_level, MAT_files_first_level, ...
-    'n_perms', n_perms, 'overwrite', I.overwrite, ...
+    'n_perms', I.n_perms, 'overwrite', I.overwrite, ...
     'nuissance_regressor_files', nuissance_regressor_files);
 
 %% Reliability measures
@@ -165,7 +167,7 @@ for i = 1:n_contrasts
     for q = 1:2
         
         figure_file = [figure_directory '/' 'pmap_' P.contrast_names{i} ...
-            '_' num2str(n_perms) 'perms' '_' hemis{q} '_colrange_'...
+            '_' num2str(I.n_perms) 'perms' '_' hemis{q} '_colrange_'...
             num2str(I.color_range(1)) '_' num2str(I.color_range(2)) '.png'];
         
         if ~exist(figure_file, 'file') || I.overwrite

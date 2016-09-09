@@ -1,5 +1,5 @@
-function MAT_file = glm_event_regression(data_matrix_file, para_file, ...
-    parameter_file, MAT_file, varargin)
+function glm_event_regression(...
+    data_matrix_file, para_file, parameter_file, MAT_file, varargin)
 
 % Regression analysis with discrete events/blocks. Regressors are weighted
 % events, and the beta weights from the regression analysis are multiplied by a
@@ -13,6 +13,8 @@ function MAT_file = glm_event_regression(data_matrix_file, para_file, ...
 % 2016-08-27: Modified how optional arguments are handled, current
 % implementation requires the MAT files the results are saved to, to be
 % specified
+% 
+% 2016-09-09: Results are of permutation tests are saved as a separate MAT file
 
 %% Outside directories
 
@@ -139,6 +141,9 @@ save(MAT_file, 'voxels_without_NaN', 'beta_contrast', ...
 % optionally perform permutation test
 if I.n_perms > 0
     
+    [~,perm_MAT_file] = fileparts(MAT_file);
+    perm_MAT_file = [perm_MAT_file '_' num2str(I.n_perms) 'perms.mat'];
+    
     % can exclude null so that stimulus conditions only permuted
     % with respect to other stimulus conditions
     %     if optInputs(varargin, 'exclude-null')
@@ -174,12 +179,9 @@ if I.n_perms > 0
     logP_residual_permtest = fillin_NaN_voxels(logP_residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
 
     % save results to matfile
-    save(MAT_file, 'beta_contrast_permtest', 'logP_permtest',...
-        'residual_permtest', 'logP_residual_permtest', '-append');
-    
+    save(perm_MAT_file, 'beta_contrast_permtest', 'logP_permtest',...
+        'residual_permtest', 'logP_residual_permtest');
+
 end
-
-% v2
-
 
 

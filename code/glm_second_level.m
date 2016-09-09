@@ -6,6 +6,8 @@ function glm_second_level(data_matrix_files, para_files, parameter_file, ...
 % 2016-08-27: Modified how optional arguments are handled, current
 % implementation requires the MAT files the results are saved to, to be
 % specified
+% 
+% 2016-09-09: Results of permutation test saved as a separate MAT file
 
 % handle optional inputs and defaults
 I.n_perms = 0;
@@ -13,13 +15,31 @@ I.nuissance_regressor_files = cell(size(data_matrix_files));
 I.overwrite = false;
 I = parse_optInputs_keyvalue(varargin, I);
 
-assert(length(data_matrix_files) == length(para_files));
-assert(length(data_matrix_files) == length(MAT_files_first_level));
+% number of total runs
+n_runs = length(data_matrix_files);
+assert(n_runs == length(para_files));
+assert(n_runs == length(MAT_files_first_level));
+
+if I.n_perms > 0
+    
+    % second level MAT files with permuted stats
+    [~,perm_MAT_file_second_level] = fileparts(MAT_file_second_level);
+    perm_MAT_file_second_level = [perm_MAT_file_second_level ...
+        '_' num2str(I.n_perms) 'perms.mat'];
+    
+    % first level MAT files with permuted stats
+    perm_MAT_files_first_level = cell(size(MAT_files_first_level));
+    for i = 1:n_runs
+        [~,perm_MAT_files_first_level{i}] = fileparts(MAT_files_first_level{i});
+        perm_MAT_files_first_level{i} = [MAT_files_first_level{i} ...
+            '_' num2str(I.n_perms) 'perms.mat'];
+    end
+    
+end
 
 %% First level / run-based analysis
 
 % analyzing individual runs
-n_runs = length(data_matrix_files);
 for i = 1:n_runs
     
     fprintf('Analyzing run %d\n',i);
@@ -29,9 +49,11 @@ for i = 1:n_runs
     %         data_matrix_files{i}, para_files{i}, ...
     %         parameter_file, I.n_perms, matfiles_first_level{i}};
     %     hash_value = DataHash(args);
-    
+        
     % check if the output file already exists, if not perform analysis
-    if ~exist(MAT_files_first_level{i}, 'file') || I.overwrite
+    if ~exist(MAT_files_first_level{i}, 'file') ...
+            || (I.n_perms > 0 && ~exist(perm_MAT_files_first_level{i}, 'file'))...
+            || I.overwrite
         
         % first level regression
         glm_event_regression(data_matrix_files{i}, para_files{i}, ...
@@ -100,17 +122,12 @@ end
 if I.n_perms == 0
     return;
 end
-matfile_vars = whos('-file', MAT_file_second_level);
-varnames = {matfile_vars(:).name};
 
-if ~any(strcmp('logP_permtest',varnames)) ...
-        || ~any(strcmp('beta_contrast_permtest',varnames)) ...
-        || ~any(strcmp('residual_permtest',varnames)) ...
-        || ~any(strcmp('logP_residual_permtest',varnames))
+if ~exist(perm_MAT_file_second_level, 'file') || I.overwrite
     
     % average across runs
     for i = 1:n_runs
-        X = load(MAT_files_first_level{i}, ...
+        X = load(perm_MAT_files_first_level{i}, ...
             'beta_contrast_permtest', 'residual_permtest');
         if i == 1
             beta_contrast_permtest = X.beta_contrast_permtest / n_runs;
@@ -128,7 +145,7 @@ if ~any(strcmp('logP_permtest',varnames)) ...
     logP_residual_permtest = -sig_via_null_gaussfit(residual, residual_permtest); %#ok<NASGU>
     
     % save results
-    save(MAT_file_second_level, 'logP_permtest', 'beta_contrast_permtest', ...
+    save(perm_MAT_file_second_level, 'logP_permtest', 'beta_contrast_permtest', ...
         'residual_permtest', 'logP_residual_permtest', '-append');
     
 end
