@@ -1,15 +1,19 @@
 function [MAT_file_second_level, MAT_files_first_level, ...
+    perm_MAT_file_second_level, perm_MAT_files_first_level, ...
     P, analysis_directory, figure_directory] = ...
     glm_surf_grid(exp, us, runtype, fwhm, analysis_name, ...
     grid_spacing_mm, grid_roi, varargin)
 
 
 % 2016-08-27: Modified how optional arguments are handled
-% 
+%
 % 2016-08-31: Made the prefix of the para files an optional argument
-% 
+%
 % 2016-09-09: n_perms made an optional argument, permutation tests are saved as
 % a separate MAT file, requiring small changes to this wrapper function
+%
+% 2016-09-09: This function now directly calls first level analysis script
+% glm_event_regression.m, and handles whether or not to overwrite files
 
 global root_directory;
 
@@ -50,7 +54,7 @@ if ~exist(figure_directory, 'dir')
     mkdir(figure_directory);
 end
 
-%% Input and output files
+%% First level analysis
 
 % create cell struction with para files and data files
 fprintf('Converting surface files to data matrix...\n');
@@ -59,72 +63,108 @@ para_files = cell(1, n_runs);
 data_matrix_files = cell(1, n_runs);
 nuissance_regressor_files = cell(1, n_runs);
 MAT_files_first_level = cell(1, n_runs);
+perm_MAT_files_first_level = cell(1, n_runs);
 
 for i = 1:length(I.runs)
     
     r = I.runs(i);
-    
-    % read weighting file
-    para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' I.para_prefix  '_r' num2str(r) '.par'];
-    
-    % TR
-    TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
-    
-    % preprocessing directory with files in fsaverage space
-    preproc_fsaverage_directory = [root_directory '/' exp '/analysis/preprocess' ...
-        '/usub' num2str(us) '/' runtype '_r' num2str(r) '/myfsaverage'];
-    
-    % input surface grid
-    grid_file = [preproc_fsaverage_directory '/' ...
-        'smooth-' num2str(fwhm) 'mm' '_' ...
-        'grid-' num2str(grid_spacing_mm) 'mm' '_' grid_roi '.mat'];
-    
-    % reformated data matrix file
-    data_matrix_files{i} = ...
-        strrep(grid_file, '.mat', '_unwrapped_data_matrix.mat');
-    
-    if ~exist(data_matrix_files{i}, 'file') || I.overwrite
-        
-        % reformat to voxel x datapoint/timepoint
-        load(grid_file, 'G');
-        data_matrix = grid2matrix(G); %#ok<NASGU>
-        
-        % save
-        save(data_matrix_files{i}, 'data_matrix', 'TR', 'G', '-v7.3');
-        
-    end
-    
-    % add white matter regressors
-    X_nuissance = [];
-    if P.n_whitematter_PCs > 0
-        PCs = whitematter_PCs(exp, us, runtype, r, 'motcorr', 'bbreg');
-        X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)]; %#ok<AGROW>
-    end
-    
-    % save nuissance regressors
-    if ~isempty(X_nuissance)
-        nuissance_regressor_files{i} = ...
-            [analysis_directory '/r' num2str(r) '_nuissance.mat'];
-        save(nuissance_regressor_files{i}, 'X_nuissance');
-    end
+    fprintf('First level analysis of run %d\n',r); drawnow;
     
     % file to save results of individual run analysis
     MAT_files_first_level{i} = ...
         [analysis_directory '/r' num2str(r) '.mat'];
     
+    % first level MAT files with permuted stats
+    if I.n_perms > 0
+        perm_MAT_files_first_level{i} = ...
+            [analysis_directory '/r' num2str(r) '_' num2str(I.n_perms) 'perms.mat'];
+    end
+    
+    % check if output files already exist
+    if ~exist(MAT_files_first_level{i}, 'file') ...
+            || (I.n_perms > 0 && ~exist(perm_MAT_files_first_level{i}, 'file'))...
+            || I.overwrite
+        
+        % read weighting file
+        para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
+            '/' I.para_prefix  '_r' num2str(r) '.par'];
+        
+        % TR
+        TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
+        
+        % preprocessing directory with files in fsaverage space
+        preproc_fsaverage_directory = [root_directory '/' exp '/analysis/preprocess' ...
+            '/usub' num2str(us) '/' runtype '_r' num2str(r) '/myfsaverage'];
+        
+        % input surface grid
+        grid_file = [preproc_fsaverage_directory '/' ...
+            'smooth-' num2str(fwhm) 'mm' '_' ...
+            'grid-' num2str(grid_spacing_mm) 'mm' '_' grid_roi '.mat'];
+        
+        % reformated data matrix file
+        data_matrix_files{i} = ...
+            strrep(grid_file, '.mat', '_unwrapped_data_matrix.mat');
+        
+        if ~exist(data_matrix_files{i}, 'file') || I.overwrite
+            
+            % reformat to voxel x datapoint/timepoint
+            load(grid_file, 'G');
+            data_matrix = grid2matrix(G); %#ok<NASGU>
+            
+            % save
+            save(data_matrix_files{i}, 'data_matrix', 'TR', 'G', '-v7.3');
+            
+        end
+        
+        % add white matter regressors
+        X_nuissance = [];
+        if P.n_whitematter_PCs > 0
+            PCs = whitematter_PCs(exp, us, runtype, r, 'motcorr', 'bbreg');
+            X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)]; %#ok<AGROW>
+        end
+        
+        % save nuissance regressors
+        if ~isempty(X_nuissance)
+            nuissance_regressor_files{i} = ...
+                [analysis_directory '/r' num2str(r) '_nuissance.mat'];
+            save(nuissance_regressor_files{i}, 'X_nuissance');
+        end
+        
+        
+        % first level regression
+        glm_event_regression(data_matrix_files{i}, para_files{i}, ...
+            parameter_file, MAT_files_first_level{i}, ...
+            'n_perms', I.n_perms, 'nuissance_regressor_file', ...
+            I.nuissance_regressor_files{i});
+    end
+    
 end
+
+%% Second level analysis
 
 % file to save results of second level analysis pooling across runs
 MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) '.mat'];
 
-%% Run analysis
+% second level MAT files with permuted stats
+if I.n_perms > 0
+    [~,perm_MAT_file_second_level] = fileparts(MAT_file_second_level);
+    perm_MAT_file_second_level = [perm_MAT_file_second_level ...
+        '_' num2str(I.n_perms) 'perms.mat'];
+else
+    perm_MAT_file_second_level = [];
+end
 
-% perform the second level analysis
-glm_second_level(data_matrix_files, para_files, parameter_file, ...
-    MAT_file_second_level, MAT_files_first_level, ...
-    'n_perms', I.n_perms, 'overwrite', I.overwrite, ...
-    'nuissance_regressor_files', nuissance_regressor_files);
+% check if output files already exist
+if ~exist(MAT_file_second_level, 'file') ...
+        || (I.n_perms > 0 && ~exist(perm_MAT_file_second_level, 'file'))...
+        || I.overwrite
+    
+    % perform the second level analysis
+    glm_second_level(data_matrix_files, para_files, ...
+        MAT_file_second_level, MAT_files_first_level, ...
+        'n_perms', I.n_perms, ...
+        'nuissance_regressor_files', nuissance_regressor_files);
+end
 
 %% Reliability measures
 
