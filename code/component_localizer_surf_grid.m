@@ -16,6 +16,11 @@ test_info = ...
 component_info = ...
     default_component_parameters(component_info, us);
 
+% add a permutation test in order to evaluate significance
+if I.thresh_logP_residual_permtest > -inf
+    component_info.n_perms = 100;
+end
+
 for k = 1:length(test_info.runs) % loop through runs
     
     if I.verbose
@@ -64,6 +69,7 @@ for k = 1:length(test_info.runs) % loop through runs
     end
     
     % measure psc
+    mask = mask & all(~isnan(voxel_psc),1) & all(~isnan(comp_weights),1);
     comp_psc(k,:,:) = voxel_psc(:,mask) * pinv(comp_weights(:,mask));
     
 end
@@ -73,18 +79,37 @@ function [beta_one_per_regressor, logP_residual_permtest, component_names] = ...
     localizer_weights(component_info, us, localizer_runs_to_use, ...
     fwhm, grid_spacing_mm, grid_roi) %#ok<STOUT>
 
-MAT_file_second_level = sigav_glm_surf_grid(...
+[MAT_file_second_level, MAT_files_first_level, ...
+    perm_MAT_file_second_level, perm_MAT_files_first_level, P] ...
+    = glm_surf_grid(...
     component_info.exp, us, component_info.runtype, ...
     fwhm, component_info.analysis_name, ...
-    grid_spacing_mm, grid_roi, component_info.n_perms, ...
+    grid_spacing_mm, grid_roi, ...
+    'n_perms', component_info.n_perms, ...
     'analysis_type', component_info.analysis_type, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
     'plot_reliability', false, 'overwrite', component_info.overwrite, ...
     'para_prefix', component_info.para_prefix);
 
-fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
-load(MAT_file_second_level, 'beta_one_per_regressor', ...
-    'logP_residual_permtest', 'P');
+if length(localizer_runs_to_use)>1
+    fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
+    load(MAT_file_second_level, 'beta_one_per_regressor');
+    if component_info.n_perms > 0
+        load(perm_MAT_file_second_level, 'logP_residual_permtest');
+    else
+        logP_residual_permtest = [];
+    end
+else
+    fprintf('First level file\n%s\n', MAT_files_first_level{1}); drawnow;
+    assert(length(MAT_files_first_level)==1);
+    load(MAT_files_first_level{1}, 'beta_one_per_regressor');
+    if component_info.n_perms > 0
+        load(perm_MAT_files_first_level{1}, 'logP_residual_permtest');
+    else
+        logP_residual_permtest = [];
+    end
+end
+
 component_names = P.regressor_names;
 
 function component_info = default_component_parameters(...

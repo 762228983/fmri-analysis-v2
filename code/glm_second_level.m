@@ -10,6 +10,8 @@ function glm_second_level(data_matrix_files, para_files, ...
 % 2016-09-09: Results of permutation test saved as a separate MAT file
 % 
 % 2016-09-09: No longer calls first level script, glm_event_regression.m
+% 
+% 2016-09-10: Made residual permutation test one-tailed
 
 % handle optional inputs and defaults
 I.n_perms = 0;
@@ -28,10 +30,11 @@ for i = 1:n_runs
     
     % load first level analysis
     X = load(MAT_files_first_level{i},'beta_contrast',...
-        'contrast_variance','P','df','residual');
+        'contrast_variance','P','df','residual','beta_one_per_regressor');
     
     if i == 1
         beta_contrast_allruns = nan([n_runs, size(X.beta_contrast)]);
+        beta_one_per_regressor_allruns = nan([n_runs, size(X.beta_one_per_regressor)]);
         contrast_variance_allruns = nan([n_runs, size(X.contrast_variance)]);
         residual_allruns = nan([n_runs, size(X.residual)]);
         dfs = nan(n_runs,1);
@@ -39,6 +42,7 @@ for i = 1:n_runs
     end
     
     beta_contrast_allruns(i,:,:) = X.beta_contrast;
+    beta_one_per_regressor_allruns(i,:,:) = X.beta_one_per_regressor;
     contrast_variance_allruns(i,:,:) = X.contrast_variance;
     residual_allruns(i,:,:) = X.residual;
     dfs(i) = X.df;
@@ -48,6 +52,7 @@ clear X;
 
 % set beta contrast and residual to the average across runs
 beta_contrast = squeeze_dims( mean(beta_contrast_allruns, 1), 1);
+beta_one_per_regressor = squeeze_dims( mean(beta_one_per_regressor_allruns, 1), 1); %#ok<NASGU>
 residual = squeeze_dims( mean(residual_allruns, 1), 1);
 
 % ols stats across runs
@@ -58,11 +63,13 @@ residual = squeeze_dims( mean(residual_allruns, 1), 1);
 
 % save results
 save(MAT_file_second_level, 'beta_contrast', 'logP_fixed', 'logP_random', ...
-    'contrast_variance_fixed', 'contrast_variance_random', 'P', 'residual');
+    'contrast_variance_fixed', 'contrast_variance_random', 'P', 'residual', ...
+    'beta_one_per_regressor');
 
 % clear variables no longer needed
-clear beta_contrast_allruns contrast_variance_allruns ...
-    logP_fixed contrast_variance_fixed logP_random contrast_variance_random;
+clear beta_contrast_allruns beta_one_per_regressor_allruns beta_one_per_regressor ...
+    contrast_variance_allruns logP_fixed contrast_variance_fixed logP_random ...
+    contrast_variance_random;
 
 %% Second level, permutation test
 
@@ -71,16 +78,18 @@ if I.n_perms == 0
 end
 
 % second level MAT files with permuted stats
-[~,perm_MAT_file_second_level] = fileparts(MAT_file_second_level);
-perm_MAT_file_second_level = [perm_MAT_file_second_level ...
+[parent_directory,perm_MAT_file_second_level] = fileparts(MAT_file_second_level);
+perm_MAT_file_second_level = [parent_directory '/' perm_MAT_file_second_level ...
     '_' num2str(I.n_perms) 'perms.mat'];
+clear parent_directory;
 
 % first level MAT files with permuted stats
 perm_MAT_files_first_level = cell(size(MAT_files_first_level));
 for i = 1:n_runs
-    [~,perm_MAT_files_first_level{i}] = fileparts(MAT_files_first_level{i});
-    perm_MAT_files_first_level{i} = [MAT_files_first_level{i} ...
+    [parent_directory,perm_MAT_files_first_level{i}] = fileparts(MAT_files_first_level{i});
+    perm_MAT_files_first_level{i} = [parent_directory '/' perm_MAT_files_first_level{i} ...
         '_' num2str(I.n_perms) 'perms.mat'];
+    clear parent_directory;
 end
 
 % average across runs
@@ -100,10 +109,11 @@ end
 % estimate P value
 load(MAT_file_second_level, 'beta_contrast', 'residual');
 logP_permtest = sig_via_null_gaussfit(beta_contrast, beta_contrast_permtest); %#ok<NASGU>
-logP_residual_permtest = -sig_via_null_gaussfit(residual, residual_permtest); %#ok<NASGU>
+logP_residual_permtest = sig_via_null_gaussfit(residual, residual_permtest, ...
+    'tail', 'left'); %#ok<NASGU>
 
 % save results
 save(perm_MAT_file_second_level, 'logP_permtest', 'beta_contrast_permtest', ...
-    'residual_permtest', 'logP_residual_permtest', '-append');
+    'residual_permtest', 'logP_residual_permtest');
 
 

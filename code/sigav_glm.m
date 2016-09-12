@@ -52,7 +52,7 @@ for i = 1:n_trials
         & t <= T.onsets(i) + T.durs(i) + I.offset_delay;
     response(i,:) = mean(Y(xi,:),1);
 end
-clear xi t nTR n_trials;
+clear xi t nTR;
 
 %% Measure null and convert to psc
 
@@ -64,8 +64,8 @@ null_response = mean(response(xi,:),1);
 
 % convert to psc
 % -> trials x voxels
-psc = response - repmat(null_response, n_trials, 1) ...
-    ./ repmat(null_response, n_trials, 1);
+psc = 100 * (response - repmat(null_response, n_trials, 1)) ...
+    ./ repmat(null_response, n_trials, 1);  
 
 %% Weights
 
@@ -131,13 +131,18 @@ save(MAT_file, 'psc', 'null_response', ...
 % optionally perform permutation test
 if I.n_perms > 0
     
+    [parent_directory,perm_MAT_file] = fileparts(MAT_file);
+    perm_MAT_file = [parent_directory '/' perm_MAT_file '_' num2str(I.n_perms) 'perms.mat'];
+    clear parent_directory;
+    
     % estimate contrasts and residual from permutations
     beta_contrast_permtest = nan(...
-        [I.n_perms, length(P.contrast_names), sum(voxels_without_NaN)]);
-    residual_permtest = nan([I.n_perms, sum(voxels_without_NaN)]);
+        [I.n_perms, length(P.contrast_names), n_voxels_without_NaN]);
+    residual_permtest = nan([I.n_perms, n_voxels_without_NaN]);
     for i = 1:I.n_perms
         [beta_contrast_permtest(i,:,:), ~, ~, ~, residual_permtest(i,:)] = ...
-            regress_stats_ols(Y, W(randperm(n_trials),:), P.contrast_weights);
+            regress_stats_ols(psc(:,voxels_without_NaN), ...
+            W(randperm(n_trials),:), P.contrast_weights);
     end
     clear X;
     
@@ -145,8 +150,7 @@ if I.n_perms > 0
     logP_permtest = sig_via_null_gaussfit(...
         beta_contrast(:,voxels_without_NaN), beta_contrast_permtest);
     logP_residual_permtest = sig_via_null_gaussfit(...
-        residual(:,voxels_without_NaN), residual_permtest);
-    logP_residual_permtest = -logP_residual_permtest;
+        residual(:,voxels_without_NaN), residual_permtest, 'tail', 'left');
     
     % fill in NaN entries
     beta_contrast_permtest = fillin_NaN_voxels(beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
@@ -155,8 +159,8 @@ if I.n_perms > 0
     logP_residual_permtest = fillin_NaN_voxels(logP_residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
 
     % save results to matfile
-    save(MAT_file, 'beta_contrast_permtest', 'logP_permtest',...
-        'residual_permtest', 'logP_residual_permtest', '-append');
+    save(perm_MAT_file, 'beta_contrast_permtest', 'logP_permtest',...
+        'residual_permtest', 'logP_residual_permtest');
     
 end
 

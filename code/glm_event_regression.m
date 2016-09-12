@@ -6,6 +6,39 @@ function glm_event_regression(...
 % contrast vector/matrix. Statistics are computed using ordinary least squares
 % and a permutation test.
 % 
+% -- Variables saved to MAT_file --
+% 
+% beta_one_per_regressor: [NUM_REGRESSORS x NUM_VOXELS] matrix. Each row
+% contains the beta weights for a single regressor across all voxels. NaN values
+% indicate voxels that did not have values in the input data matrix.
+% 
+% beta_contrast: [NUM_CONTRASTS x NUM_VOXELS] matrix. Each row contains the
+% values for a single contrast between the betas (i.e. a single column of the
+% contrast_weights matrix). Equivalent to beta_one_per_regressor if the
+% contrast_weight matrix was the identity matrix.
+% 
+% logP_ols: [NUM_CONTRASTS x NUM_VOXELS] matrix. Each row contains a
+% significance measure (p-value) for a single contrast based on ordinary
+% least-squares assumptions (independent, Gaussian-distributed errors). P-values
+% are logarithmically transformed and signed based on whether the voxel
+% responded positively or negatively to the contrast: sign(beta_contrast) .*
+% -log10(p).
+% 
+% -- Variables saved to permutation file --
+% 
+% logP_permtest: [NUM_CONTRASTS x NUM_VOXELS] matrix. Each row contains a
+% significance measure (p-value) for a single contrast based on a null
+% distribution, computed by permuting the order of conditions in a run. P-values
+% are logarithmically transformed and signed based on whether the beta contrast
+% exceeded (positive) or fellow below (negative) the mean of the null
+% distribution.
+% 
+% logP_residual_permtest: [1 x NUM_VOXELS] vector. A single row with a
+% significance measure that evaluates the overall significance of the regression
+% model. P-values are logarithmically transformed (-log10(p)) and are stricly
+% positive.
+% 
+% 
 % 2016-07-08: Generalized to have contrasts, Sam NH
 % 
 % 2016-08-26: Add residual statistics, Sam NH
@@ -15,6 +48,8 @@ function glm_event_regression(...
 % specified
 % 
 % 2016-09-09: Results are of permutation tests are saved as a separate MAT file
+% 
+% 2016-09-10: Made residual permutation test one-tailed
 
 %% Outside directories
 
@@ -141,8 +176,9 @@ save(MAT_file, 'voxels_without_NaN', 'beta_contrast', ...
 % optionally perform permutation test
 if I.n_perms > 0
     
-    [~,perm_MAT_file] = fileparts(MAT_file);
-    perm_MAT_file = [perm_MAT_file '_' num2str(I.n_perms) 'perms.mat'];
+    [parent_directory,perm_MAT_file] = fileparts(MAT_file);
+    perm_MAT_file = [parent_directory '/' perm_MAT_file '_' num2str(I.n_perms) 'perms.mat'];
+    clear parent_directory;
     
     % can exclude null so that stimulus conditions only permuted
     % with respect to other stimulus conditions
@@ -169,8 +205,7 @@ if I.n_perms > 0
     logP_permtest = sig_via_null_gaussfit(...
         beta_contrast(:,voxels_without_NaN), beta_contrast_permtest);
     logP_residual_permtest = sig_via_null_gaussfit(...
-        residual(:,voxels_without_NaN), residual_permtest);
-    logP_residual_permtest = -logP_residual_permtest;
+        residual(:,voxels_without_NaN), residual_permtest, 'tail', 'left');
     
     % fill in NaN entries
     beta_contrast_permtest = fillin_NaN_voxels(beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>

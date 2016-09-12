@@ -1,44 +1,13 @@
-function [psc, conditions, n_voxels_per_run_and_threshold] = ...
+function [psc, condition_names, n_voxels_per_run_and_threshold] = ...
     roi_surf_grid(  us, grid_roi, grid_spacing_mm, ...
     localizer_info, test_info, fwhm, varargin )
 
 % Primary top-level script for performing ROI analyses
 %
-% fprintf('v2\n'); drawnow;
-
-% % -- Example Arguments --
-% % subject
-% us = 158;
-%
-% % roi constraint region and spacing of the grid
-% grid_roi = 'hand-audctx';
-% grid_spacing_mm = 2.8571/2;
-%
-% % amount the data was smoothed
-% fwhm = 2.8571;
-%
-% % information about the test data
-% clear test_info;
-% test_info.exp = 'pitch_localizer_monkey';
-% test_info.runtype = 'pitchloc2_combined_split';
-%
-% % information about the localizer data/contrasts
-% clear localizer_info;
-% localizer_info = [test_info, test_info];
-%
-% localizer_info(1).contrast = 'all_pitchloc2';
-% localizer_info(1).contrast_sign = 1;
-% localizer_info(1).threshold_type = 'absolute';
-% localizer_info(1).thresholds = 3;
-% localizer_info(1).max_runs_to_use = [];
-%
-% localizer_info(2).contrast = 'f0100-200_vs_f0800-1600';
-% localizer_info(2).contrast_sign = 1;
-% localizer_info(2).threshold_type = 'relative';
-% localizer_info(2).thresholds = 0.05:0.05:0.3;
-% localizer_info(2).max_runs_to_use = [];
-%
 % 2016-08-26: Created, Sam NH
+% 
+% 2016-09-10: Small changes needed to keep accomodate changes made to other
+% functions this script relies on.
 
 I.verbose = true;
 I.anatomical_mask = '';
@@ -57,11 +26,6 @@ for j = 1:n_localizers
     n_thresholds_per_localizer(j) = length(localizer_info(j).thresholds);
 end
 
-% initialize PSC matrix
-% runs x conditions x thresholds
-psc = nan([ length(test_info.runs), length(test_info.conditions), ...
-    n_thresholds_per_localizer ]);
-
 % number of voxels selected for different relative thresholds
 n_voxels_per_run_and_threshold = ...
     nan([length(test_info.runs), n_thresholds_per_localizer]);
@@ -76,8 +40,10 @@ for k = 1:length(test_info.runs) % loop through runs
     
     % matrix of psc values for each voxels
     % condition x voxel matrix
-    voxel_psc = psc_single_run(test_info, us, test_info.runs(k), ...
+    [voxel_psc, condition_names] = ...
+        psc_single_run(test_info, us, test_info.runs(k), ...
         fwhm, grid_spacing_mm, grid_roi);
+
         
     % create the mask
     n_voxels = size(voxel_psc,2);
@@ -203,6 +169,13 @@ for k = 1:length(test_info.runs) % loop through runs
         % check voxels do not have NaN values
         assert(all(~isnan(voxel_psc_in_roi(:))));
         
+        % initialize PSC matrix
+        % runs x conditions x thresholds
+        if k == 1 && i == 1
+            psc = nan([ length(test_info.runs), length(condition_names), ...
+                n_thresholds_per_localizer ]);
+        end
+        
         % average PSC values within selected voxels
         psc(k,:,threshold_indices{:}) = mean(voxel_psc_in_roi, 2);
         
@@ -215,38 +188,55 @@ if isempty(n_thresh_dim);
     n_thresh_dim = 1;
 end
 psc = reshape(psc, ...
-    [length(test_info.runs), length(test_info.conditions), n_thresh_dim]);
+    [length(test_info.runs), length(condition_names), n_thresh_dim]);
 n_voxels_per_run_and_threshold = reshape(...
     n_voxels_per_run_and_threshold, [length(test_info.runs), n_thresh_dim]);
-
-% return conditions used
-conditions = test_info.conditions;
 
 % helper function that find the appropriate file with p-values
 function loc_stat = localizer_stat(...
     localizer_info, us, localizer_runs_to_use, ...
     fwhm, grid_spacing_mm, grid_roi)
 
-MAT_file_second_level = glm_surf_grid(...
-    localizer_info.exp, us, localizer_info.runtype, ...
+[MAT_file_second_level, MAT_files_first_level, ...
+    perm_MAT_file_second_level, perm_MAT_files_first_level] ...
+    = glm_surf_grid(localizer_info.exp, us, localizer_info.runtype, ...
     fwhm, localizer_info.analysis_name, ...
-    grid_spacing_mm, grid_roi, localizer_info.n_perms, ...
+    grid_spacing_mm, grid_roi, ...
+    'analysis_type',  localizer_info.analysis_type, ...
+    'n_perms', localizer_info.n_perms, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
     'plot_reliability', false, 'overwrite', localizer_info.overwrite, ...
     'para_prefix', localizer_info.para_prefix);
 
-fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
-
-if localizer_info.n_perms >= 100
-    load(MAT_file_second_level, 'logP_permtest');
+if length(localizer_runs_to_use) > 1 ...
+        && localizer_info.n_perms > 0  % second level, permutation test
+    load(perm_MAT_file_second_level, 'logP_permtest');
+    load(MAT_file_second_level, 'P');
     loc_stat = logP_permtest;
+
+elseif length(localizer_runs_to_use) > 1 ...
+        && localizer_info.n_perms == 0  % second level, fixed effects
+    load(MAT_file_second_level, 'logP_fixed_effects', 'P');
+    loc_stat = logP_fixed_effects;
+    
+elseif length(localizer_runs_to_use) == 1 ...
+        && localizer_info.n_perms > 0  % first level, permutation test
+    load(perm_MAT_files_first_level{1}, 'logP_permtest');
+    load(MAT_files_first_level{1}, 'P');
+    loc_stat = logP_permtest;
+    
+elseif length(localizer_runs_to_use) == 1 ...
+        && localizer_info.n_perms == 0  % first level, OLS
+    load(MAT_files_first_level{1}, 'logP_ols', 'P');
+    loc_stat = logP_ols;
+    
 else
-    load(MAT_file_second_level, 'logP_fixed')
-    loc_stat = logP_fixed;
+    
+    error('No matching case');
+
 end
 
 % select the row of loc_stat with the desired contrast
-load(MAT_file_second_level, 'P');
 xi = strcmp(localizer_info.contrast, P.contrast_names);
 assert(sum(xi)==1);
 loc_stat = loc_stat(xi,:);
