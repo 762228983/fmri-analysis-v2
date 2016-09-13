@@ -213,6 +213,10 @@ if n_runs > 1 && I.plot_reliability
     glm_contrast_map_reliability(MAT_files_first_level,...
         analysis_directory, figure_directory, 'overwrite', I.overwrite);
     
+    % reliability of individual voxel responses across regressors
+    glm_voxel_reliability(MAT_files_first_level,...
+        analysis_directory, figure_directory, 'overwrite', I.overwrite);
+    
     % % plot reliability of response profile across runs
     % glm_regressor_response_reliability(MAT_files_first_level,...
     %     analysis_directory, figure_directory, 'overwrite', I.overwrite);

@@ -44,7 +44,6 @@ for k = 1:length(test_info.runs) % loop through runs
         psc_single_run(test_info, us, test_info.runs(k), ...
         fwhm, grid_spacing_mm, grid_roi);
 
-        
     % create the mask
     n_voxels = size(voxel_psc,2);
     if isempty(I.anatomical_mask)
