@@ -4,7 +4,7 @@ function corr_test_retest = glm_regressor_voxel_reliability(...
 % Reliability of regressors across voxels
 % 
 % 2016-09-13: Created, Sam NH
-keyboard;
+
 % optional arguments and defaults
 I.overwrite = false;
 I = parse_optInputs_keyvalue(varargin, I);

@@ -6,7 +6,7 @@ global root_directory;
 I.plot = true;
 I = parse_optInputs_keyvalue(varargin, I);
 
-figure_directory = [root_directory '/' exp '/figures/motion/'];
+figure_directory = [root_directory '/' exp '/figures/data-quality/motion/'];
 if ~exist(figure_directory,'dir');
     mkdir(figure_directory);
 end

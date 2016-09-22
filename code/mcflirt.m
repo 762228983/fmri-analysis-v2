@@ -29,13 +29,15 @@ if ~exist(input_file, 'file')
 end
 
 % preprocessing directory
-preprocessing_directory = [root_directory '/' exp '/analysis/preprocess/usub' num2str(us) '/' runtype '_r' num2str(r)];
+preprocessing_directory = [root_directory '/' exp '/analysis/preprocess' ...
+    '/usub' num2str(us) '/' runtype '_r' num2str(r)];
 if ~exist(preprocessing_directory,'dir');
     mkdir(preprocessing_directory);
 end
 
 % directory to save figures to
-figure_directory = strrep(preprocessing_directory, 'analysis', 'figures');
+figure_directory = [root_directory '/' exp '/figures/data-quality' ...
+    '/motion/usub' num2str(us) '/' runtype '_r' num2str(r)];
 if ~exist(figure_directory,'dir');
     mkdir(figure_directory);
 end
