@@ -12,8 +12,9 @@ freesurfer_directory = [root_directory '/freesurfer/myfsaverage'];
 
 % file to save grid to
 output_directory = [freesurfer_directory '/grid_labels/' ...
-    grid_roi '_' grid_spacing_mm 'mm'];
+    grid_roi '_' num2str(grid_spacing_mm) 'mm'];
 output_file = [output_directory '/' label_name '.mat'];
+output_directory
 if ~exist(output_directory, 'dir')
     mkdir(output_directory);
 end
@@ -28,6 +29,8 @@ end
 % source label files
 label_rh = [freesurfer_directory '/label/rh.' label_name '.label'];
 label_lh = [freesurfer_directory '/label/lh.' label_name '.label'];
+
+label_rh
 
 % convert to surface file, right hemisphere
 n_surfpts = 163842;

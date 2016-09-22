@@ -127,7 +127,7 @@ for k = 1:length(test_info.runs) % loop through runs
         % remove NaN voxels
         % logical all is applied to conditions for each voxel
         voxels_in_roi = find(...
-            all(~isnan(voxel_psc),1) ...
+            any(~isnan(voxel_psc),1) ...
             & all(~isnan(localizer_contrast_stat_matrix),1) ...
             & mask);
         
@@ -163,11 +163,6 @@ for k = 1:length(test_info.runs) % loop through runs
             continue;
         end
         
-        voxel_psc_in_roi = voxel_psc(:, voxels_in_roi);
-        
-        % check voxels do not have NaN values
-        assert(all(~isnan(voxel_psc_in_roi(:))));
-        
         % initialize PSC matrix
         % runs x conditions x thresholds
         if k == 1 && i == 1
@@ -176,7 +171,7 @@ for k = 1:length(test_info.runs) % loop through runs
         end
         
         % average PSC values within selected voxels
-        psc(k,:,threshold_indices{:}) = mean(voxel_psc_in_roi, 2);
+        psc(k,:,threshold_indices{:}) = mean(voxel_psc(:, voxels_in_roi), 2);
         
     end
 end
@@ -204,8 +199,7 @@ function loc_stat = localizer_stat(...
     'analysis_type',  localizer_info.analysis_type, ...
     'n_perms', localizer_info.n_perms, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
-    'plot_reliability', false, 'overwrite', localizer_info.overwrite, ...
-    'para_prefix', localizer_info.para_prefix);
+    'plot_reliability', false, 'overwrite', localizer_info.overwrite);
 
 if length(localizer_runs_to_use) > 1 ...
         && localizer_info.n_perms > 0  % second level, permutation test
@@ -278,11 +272,7 @@ for j = 1:n_localizers
     if ~isfield(localizer_info(j), 'overwrite')
         localizer_info(j).overwrite = false;
     end
-    
-    if ~isfield(localizer_info(j), 'para_prefix')
-        localizer_info(j).para_prefix = localizer_info(j).runtype;
-    end
-
+   
 end
 
 

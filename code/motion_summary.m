@@ -1,7 +1,12 @@
-function [mean_rms, n_timepoints_above_0p5mm, n_timepoints_above_1mm, max_total_rms_bysubject] = motion_summary(exp, usubs, runtype, varargin)
+function [mean_rms, n_timepoints_above_0p5mm, n_timepoints_above_1mm] ...
+    = motion_summary(exp, usubs, runtype, varargin)
 
-addpath(genpath([pwd '/export_fig']));
-figure_directory = [params('rootdir') exp '/figures/motion/'];
+global root_directory;
+
+I.plot = true;
+I = parse_optInputs_keyvalue(varargin, I);
+
+figure_directory = [root_directory '/' exp '/figures/motion/'];
 if ~exist(figure_directory,'dir');
     mkdir(figure_directory);
 end
@@ -17,45 +22,22 @@ abs_rms_all = cell(length(usubs),1);
 
 for i = 1:length(usubs)
     
-    [runnum, ~, scans] = read_runs(exp,usubs(i),runtype,varargin{:});
+    [runs, ~, scans] = read_runs(exp,usubs(i),runtype);
     %     if optInputs(varargin,'runnum')
     %         runnum = varargin{optInputs(varargin,'runnum')+1};
     %     end
     
-    mean_rms_byrun = nan(length(runnum),1);
-    n_timepoints_above_0p2mm_byrun = nan(length(runnum),1);
-    n_timepoints_above_0p5mm_byrun = nan(length(runnum),1);
-    n_timepoints_above_1mm_byrun = nan(length(runnum),1);
+    mean_rms_byrun = nan(length(runs),1);
+    n_timepoints_above_0p2mm_byrun = nan(length(runs),1);
+    n_timepoints_above_0p5mm_byrun = nan(length(runs),1);
+    n_timepoints_above_1mm_byrun = nan(length(runs),1);
     rms_all{i} = [];
     
-    max_abs_rms_byrun = nan(length(runnum),1);
+    max_abs_rms_byrun = nan(length(runs),1);
     
-    for k = 1:length(runnum)
+    for k = 1:length(runs)
         
-        datadir = [params('rootdir') exp '/data/'];
-        preprocdir = [params('rootdir') exp '/analysis/preprocess/usub' num2str(usubs(i)) '/' runtype '_r' num2str(runnum(k)) '/'];
-        
-        try
-            fid = fopen([preprocdir 'motcorr_rel.rms']);
-            x = textscan(fid,'%f'); fclose(fid);
-        catch
-            keyboard
-        end
-        
-        if optInputs(varargin, 'monkey')
-            relrms = x{1}(:)/2.8571;
-        else
-            relrms = x{1}(:);
-        end
-        
-        fid = fopen([preprocdir 'motcorr_abs.rms']);
-        x = textscan(fid,'%f'); fclose(fid);
-        
-        if optInputs(varargin, 'monkey')
-            absrms = x{1}(:)/2.8571;
-        else
-            absrms = x{1}(:);
-        end
+        [relrms, absrms] = mcflirt(exp, usubs(i), runtype, runs(k), 'plot', false);
         
         mean_rms_byrun(k) = mean(relrms);
         n_timepoints_above_0p2mm_byrun(k) = mean(relrms(:)>0.2);
@@ -67,6 +49,7 @@ for i = 1:length(usubs)
         max_abs_rms_byrun(k) = max(abs_rms_all{i});
         
     end
+    
     max_abs_rms_bysubject(i) = max(max_abs_rms_byrun);
     mean_rms_bysubject(i) = mean(rms_all{i});
     n_timepoints_above_0p2mm_bysubject(i) = mean(rms_all{i}(:)>0.2);
@@ -85,7 +68,7 @@ if length(usubs)>1
     n_timepoints_above_1mm = n_timepoints_above_1mm_bysubject;
 else
     x_label = 'Runs';
-    x_axis = runnum;
+    x_axis = runs;
     groups = scans;
     mean_rms = mean_rms_byrun;
     n_timepoints_above_0p2mm = n_timepoints_above_0p2mm_byrun;

@@ -50,6 +50,9 @@ function glm_event_regression(...
 % 2016-09-09: Results are of permutation tests are saved as a separate MAT file
 % 
 % 2016-09-10: Made residual permutation test one-tailed
+% 
+% 2016-09-21: Modified to deal with zero regressors and contrasts, Sam NH
+
 
 %% Outside directories
 
@@ -89,17 +92,17 @@ Y = Y - repmat(mean(Y), [size(Y,1),1]);
 %% Condition matrix
 
 % collection of "boxcars" with ones during times when a given condition was "on"
-% -> time x condition
+% -> time x event
 boxcar_sr = 1;
 [B, event_names] = boxcar_from_para(para_file, boxcar_sr);
 
 % convolve boxcars with hrf
-% -> time x condition
+% -> time x event
 B = convolve_with_hrf(B, 'fsfast-gamma-BOLD', boxcar_sr);
 
 % interpolate condition matrix to the time-points at which
 % the data were collected
-% -> time x condition
+% -> time x event
 B = interp1( (0:length(B)-1)/boxcar_sr, B, (0:size(Y,1)-1)*TR );
 
 %% Regressor weights for condition matrix
@@ -115,6 +118,8 @@ for i = 1:n_events
         W(i,:) = P.regressor_weights(xi,:);
     end
 end
+nonzero_regressors = any(W~=0,1);
+W = W(:,nonzero_regressors);
 
 % weights with one regressor per condition
 n_conditions = length(P.condition_names);
@@ -122,6 +127,23 @@ W_one_per_condition = zeros(n_events,n_conditions);
 for i = 1:n_events
     xi = strcmp(event_names{i}, P.condition_names);
     W_one_per_condition(i,xi) = 1;
+end
+nonzero_conditions = any(W_one_per_condition~=0,1);
+W_one_per_condition = W_one_per_condition(:,nonzero_conditions);
+
+% contrasts with any nonzero weights
+nonzero_contrasts = any(P.contrast_weights(nonzero_regressors,:)~=0,1);
+C = P.contrast_weights(nonzero_regressors, nonzero_contrasts);
+
+%% Check that zero-mean contrasts remain so when excluding zero regressors
+
+n_contrasts = length(P.contrast_names);
+for i = 1:n_contrasts
+    if abs(sum(P.contrast_weights(:,i))) < 1e-10 ...
+            && abs(sum(P.contrast_weights(nonzero_regressors,i))) > 1e-10
+        error('Contrast "%s" is no longer zero mean when excluding zero regressors\n',...
+            P.contrast_names{i});
+    end
 end
 
 %% Nuissance regressors
@@ -142,30 +164,40 @@ n_nuissance = size(X_nuissance,2);
 %% Regression
 
 % regress weighted event matrix
-[beta_contrast, logP_ols, contrast_variance, df, residual] = ...
-    regress_stats_ols( Y, [B * W, X_nuissance], ...
-    [P.contrast_weights; zeros(n_nuissance, size(P.contrast_weights,2))]); %#ok<ASGLU>
+if n_contrasts > 0
+    [beta_contrast, logP_ols, contrast_variance, df, residual] = ...
+        regress_stats_ols( Y, [B * W, X_nuissance], ...
+        [C; zeros(n_nuissance, size(C,2))]); %#ok<ASGLU>
+end
 
 % separate beta weight for regressor
 % redundant with previous analysis if contrast matrix is the identity
 beta_one_per_regressor = ...
     regress_stats_ols(Y, [B * W, X_nuissance], ...
-    [eye(n_regressors); zeros(n_nuissance, n_regressors)]);
+    [eye(size(W,2)); zeros(n_nuissance, size(W,2))]);
 
 % separate beta weight for each condition
 beta_one_per_condition = ...
     regress_stats_ols(Y, [B * W_one_per_condition, X_nuissance], ...
-    [eye(n_conditions); zeros(n_nuissance, n_conditions)]);
+    [eye(size(W_one_per_condition,2)); zeros(n_nuissance, size(W_one_per_condition,2))]);
 
-% fill in NaN entries
-beta_contrast = fillin_NaN_voxels(beta_contrast, voxels_without_NaN, 2);
-logP_ols = fillin_NaN_voxels(logP_ols, voxels_without_NaN, 2); %#ok<NASGU>
-contrast_variance = fillin_NaN_voxels(contrast_variance, voxels_without_NaN, 2); %#ok<NASGU>
-residual = fillin_NaN_voxels(residual, voxels_without_NaN, 2);
-beta_one_per_condition = fillin_NaN_voxels(beta_one_per_condition, voxels_without_NaN, 2); %#ok<NASGU>
-beta_one_per_regressor = fillin_NaN_voxels(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
+%% Save
 
-% save
+% set NaN for zero contrasts
+beta_contrast = fillin_NaN(beta_contrast, nonzero_contrasts, 1);
+logP_ols = fillin_NaN(logP_ols, nonzero_contrasts, 1);
+contrast_variance = fillin_NaN(contrast_variance, nonzero_contrasts, 1);
+beta_one_per_regressor = fillin_NaN(beta_one_per_regressor, nonzero_regressors, 1);
+beta_one_per_condition = fillin_NaN(beta_one_per_condition, nonzero_conditions, 1);
+
+% set NaN for voxels with NaN
+beta_contrast = fillin_NaN(beta_contrast, voxels_without_NaN, 2);
+logP_ols = fillin_NaN(logP_ols, voxels_without_NaN, 2); %#ok<NASGU>
+contrast_variance = fillin_NaN(contrast_variance, voxels_without_NaN, 2); %#ok<NASGU>
+beta_one_per_regressor = fillin_NaN(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
+beta_one_per_condition = fillin_NaN(beta_one_per_condition, voxels_without_NaN, 2); %#ok<NASGU>
+residual = fillin_NaN(residual, voxels_without_NaN, 2);
+
 save(MAT_file, 'voxels_without_NaN', 'beta_contrast', ...
     'logP_ols', 'contrast_variance', 'beta_one_per_condition', ...
     'beta_one_per_regressor', 'df', 'P', 'residual', '-v7.3');
@@ -190,29 +222,33 @@ if I.n_perms > 0
     %     end
     
     % estimate contrasts and residusl from permutations
-    beta_contrast_permtest = nan([I.n_perms, length(P.contrast_names), sum(voxels_without_NaN)]);
+    beta_contrast_permtest = nan([I.n_perms, sum(nonzero_contrasts), sum(voxels_without_NaN)]);
     residual_permtest = nan([I.n_perms, sum(voxels_without_NaN)]);
     for i = 1:I.n_perms
-        X = B * W(randperm(n_events),:);
+        X = B * W(randperm(n_events), :);
         [beta_contrast_permtest(i,:,:), ~, ~, ~, residual_permtest(i,:)] ...
             = regress_stats_ols(Y, [X, X_nuissance], ...
-            [P.contrast_weights; zeros(n_nuissance, size(P.contrast_weights,2))]);
-
+            [C; zeros(n_nuissance, size(C,2))]);
     end
     clear X;
     
     % convert to signed logP value
     logP_permtest = sig_via_null_gaussfit(...
-        beta_contrast(:,voxels_without_NaN), beta_contrast_permtest);
+        beta_contrast(nonzero_contrasts,voxels_without_NaN), ...
+        beta_contrast_permtest);
     logP_residual_permtest = sig_via_null_gaussfit(...
         residual(:,voxels_without_NaN), residual_permtest, 'tail', 'left');
     
-    % fill in NaN entries
-    beta_contrast_permtest = fillin_NaN_voxels(beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
-    residual_permtest = fillin_NaN_voxels(residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
-    logP_permtest = fillin_NaN_voxels(logP_permtest, voxels_without_NaN, 2); %#ok<NASGU>
-    logP_residual_permtest = fillin_NaN_voxels(logP_residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
-
+    % set NaN for zero contrasts
+    logP_permtest = fillin_NaN(logP_permtest, nonzero_contrasts, 1);
+    beta_contrast_permtest = fillin_NaN(beta_contrast_permtest, nonzero_contrasts, 2);
+    
+    % set NaN for voxels with NaN
+    logP_permtest = fillin_NaN(logP_permtest, voxels_without_NaN, 2); %#ok<NASGU>
+    beta_contrast_permtest = fillin_NaN(beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
+    logP_residual_permtest = fillin_NaN(logP_residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
+    residual_permtest = fillin_NaN(residual_permtest, voxels_without_NaN, 2); %#ok<NASGU>
+    
     % save results to matfile
     save(perm_MAT_file, 'beta_contrast_permtest', 'logP_permtest',...
         'residual_permtest', 'logP_residual_permtest');

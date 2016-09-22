@@ -1,4 +1,4 @@
-function mcflirt(exp,us,runtype,r,varargin)
+function [relrms, absrms] = mcflirt(exp,us,runtype,r,varargin)
 
 % function mcflirt(exp,us,runtype,r,varargin)
 % 
@@ -50,11 +50,20 @@ if ~exist(mcflirt_file,'file') || I.overwrite
     unix_fsl(fsl_version, ['mcflirt -in ' input_file ' -out ' strrep(mcflirt_file,'.nii.gz','') ' -reffile ' example_func_file ' -mats -plots -rmsrel -rmsabs']);
 end
 
+% return the relative and absolute rms values
+fid = fopen([preprocessing_directory '/motcorr_rel.rms']);
+x = textscan(fid,'%f'); fclose(fid);
+relrms = x{1};
+clear fid x;
+
+fid = fopen([preprocessing_directory '/motcorr_abs.rms']);
+x = textscan(fid,'%f'); fclose(fid);
+absrms = x{1};
+clear fid x;
+
 % plot rms motion, see motion_summary for more extensive plots
 if I.plot
-    fid = fopen([preprocessing_directory '/motcorr_rel.rms']);
-    x = textscan(fid,'%f'); fclose(fid);
-    relrms = x{1};
+
     fprintf('\n\n%s, run %d\n',runtype,r);
     fprintf('Mean: %.3f\n',mean(relrms(:)));
     fprintf('Time points > 0.5 mm: %d\n',sum(relrms(:)>0.5));

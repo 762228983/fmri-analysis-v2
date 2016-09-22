@@ -9,37 +9,39 @@ function corr_test_retest = glm_contrast_map_reliability(...
 I.overwrite = false;
 I = parse_optInputs_keyvalue(varargin, I);
 
-
-% load weights from each run
-n_runs = length(matfile_first_level);
-for i = 1:n_runs
-        
-    % load weights for single run
-    load(matfile_first_level{i}, 'beta_contrast', 'P');
-    
-    % initialize weights
-    if i == 1
-        [n_contrasts, n_voxels] = size(beta_contrast);
-        contrast_allruns = nan([n_voxels, n_runs, n_contrasts]);
-    end
-    
-    % assign weights for this run
-    contrast_allruns(:,i,:) = beta_contrast';
-    
-end
-
-% voxels without any NaNs
-voxels_without_NaNs = all(all(~isnan(contrast_allruns),2),3);
-
 % differt numbers of runs to test when measuring split-half reliability
+n_runs = length(matfile_first_level);
 data_set_sizes = [2.^(0:1:log2(floor(n_runs/2))), floor(n_runs/2)];
 data_set_sizes = unique(data_set_sizes);
 n_data_set_sizes = length(data_set_sizes);
-
+    
 % measure test-retest correlation for different data set sizes
 n_smps = 1e3;
 mat_file = [analysis_directory '/map-reliability_' num2str(n_smps) 'smps.mat'];
 if ~exist(mat_file, 'file') || I.overwrite
+    
+    
+    % load weights from each run
+    for i = 1:n_runs
+        
+        % load weights for single run
+        load(matfile_first_level{i}, 'beta_contrast', 'P');
+        
+        % initialize weights
+        if i == 1
+            [n_contrasts, n_voxels] = size(beta_contrast);
+            contrast_allruns = nan([n_voxels, n_runs, n_contrasts]);
+        end
+        
+        % assign weights for this run
+        contrast_allruns(:,i,:) = beta_contrast';
+        
+    end
+    
+    % voxels without any NaNs
+    voxels_without_NaNs = all(all(~isnan(contrast_allruns),2),3);
+    
+
     fprintf('Sampling contrast map reliability...\n');
     corr_test_retest = nan(n_smps, n_data_set_sizes, n_contrasts);
     for i = 1:n_data_set_sizes

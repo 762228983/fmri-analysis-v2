@@ -5,13 +5,15 @@ function glm_second_level(data_matrix_files, para_files, ...
 %
 % 2016-08-27: Modified how optional arguments are handled, current
 % implementation requires the MAT files the results are saved to, to be
-% specified
+% specified, Sam NH
 %
-% 2016-09-09: Results of permutation test saved as a separate MAT file
+% 2016-09-09: Results of permutation test saved as a separate MAT file, Sam NH
 % 
-% 2016-09-09: No longer calls first level script, glm_event_regression.m
+% 2016-09-09: No longer calls first level script, glm_event_regression.m, Sam NH
 % 
-% 2016-09-10: Made residual permutation test one-tailed
+% 2016-09-10: Made residual permutation test one-tailed, Sam NH
+% 
+% 2016-09-21: Modified to deal with NaN values, Sam NH
 
 % handle optional inputs and defaults
 I.n_perms = 0;
@@ -51,8 +53,8 @@ end
 clear X;
 
 % set beta contrast and residual to the average across runs
-beta_contrast = squeeze_dims( mean(beta_contrast_allruns, 1), 1);
-beta_one_per_regressor = squeeze_dims( mean(beta_one_per_regressor_allruns, 1), 1); %#ok<NASGU>
+beta_contrast = squeeze_dims( nanmean(beta_contrast_allruns, 1), 1);
+beta_one_per_regressor = squeeze_dims( nanmean(beta_one_per_regressor_allruns, 1), 1); %#ok<NASGU>
 residual = squeeze_dims( mean(residual_allruns, 1), 1);
 
 % ols stats across runs
@@ -97,14 +99,26 @@ for i = 1:n_runs
     X = load(perm_MAT_files_first_level{i}, ...
         'beta_contrast_permtest', 'residual_permtest');
     if i == 1
-        beta_contrast_permtest = X.beta_contrast_permtest / n_runs;
-        residual_permtest = X.residual_permtest / n_runs;
+        beta_contrast_permtest = X.beta_contrast_permtest;
+        counts_beta_contrast_permtest = double(~isnan(beta_contrast_permtest));
+        residual_permtest = X.residual_permtest;
+        counts_residual_permtest = double(~isnan(residual_permtest));
     else
-        beta_contrast_permtest = beta_contrast_permtest ...
-            + X.beta_contrast_permtest / n_runs;
-        residual_permtest = residual_permtest + X.residual_permtest / n_runs;
+        beta_contrast_permtest = ...
+            nanplus( beta_contrast_permtest, X.beta_contrast_permtest );
+        xi = ~isnan(X.beta_contrast_permtest);
+        counts_beta_contrast_permtest(xi) = counts_beta_contrast_permtest(xi)+1;
+        clear xi;
+        
+        residual_permtest = ...
+            nanplus(residual_permtest, X.residual_permtest);
+        xi = ~isnan(X.residual_permtest);
+        counts_residual_permtest(xi) = counts_residual_permtest(xi)+1;
+        clear xi;
     end
 end
+beta_contrast_permtest = beta_contrast_permtest ./ counts_beta_contrast_permtest;
+residual_permtest = residual_permtest ./ counts_residual_permtest;
 
 % estimate P value
 load(MAT_file_second_level, 'beta_contrast', 'residual');
@@ -116,4 +130,17 @@ logP_residual_permtest = sig_via_null_gaussfit(residual, residual_permtest, ...
 save(perm_MAT_file_second_level, 'logP_permtest', 'beta_contrast_permtest', ...
     'residual_permtest', 'logP_residual_permtest');
 
+function Z = nanplus(X,Y)
+
+assert(all(size(X)==size(Y)))
+Z = nan(size(X));
+
+xi = ~isnan(X) & ~isnan(Y);
+Z(xi) = X(xi) + Y(xi);
+
+xi = ~isnan(X) & isnan(Y);
+Z(xi) = X(xi);
+
+xi = isnan(X) & ~isnan(Y);
+Z(xi) = Y(xi);
 

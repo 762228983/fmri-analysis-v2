@@ -67,10 +67,10 @@ clear X;
 %% Fill in NaN entries and save
 
 % fill in NaN entries
-psc = fillin_NaN_voxels(psc, voxels_without_NaN, 2); %#ok<NASGU>
-condition_responses = fillin_NaN_voxels(condition_responses, voxels_without_NaN, 2); %#ok<NASGU>
-null_response = fillin_NaN_voxels(null_response, voxels_without_NaN, 2); %#ok<NASGU>
-mean_signal = fillin_NaN_voxels(mean_signal, voxels_without_NaN, 2); %#ok<NASGU>
+psc = fillin_NaN(psc, voxels_without_NaN, 2); %#ok<NASGU>
+condition_responses = fillin_NaN(condition_responses, voxels_without_NaN, 2); %#ok<NASGU>
+null_response = fillin_NaN(null_response, voxels_without_NaN, 2); %#ok<NASGU>
+mean_signal = fillin_NaN(mean_signal, voxels_without_NaN, 2); %#ok<NASGU>
 
 % save
 save(MAT_file, 'psc', 'condition_responses', 'null_response', ...

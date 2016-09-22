@@ -12,7 +12,7 @@ end
 % e.g. due to a mispelling of an intended parameter
 possible_parameters = {'condition_names', 'regressor_names', ...
     'regressor_weights', 'contrast_names', 'contrast_weights', ...
-    'linear_trend', 'n_whitematter_PCs'};
+    'linear_trend', 'n_whitematter_PCs','para_prefix'};
 all_parameters = fieldnames(P);
 for i = 1:length(all_parameters)
     if ~any(strcmp(all_parameters{i}, possible_parameters))

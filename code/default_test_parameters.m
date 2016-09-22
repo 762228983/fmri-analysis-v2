@@ -17,8 +17,3 @@ end
 if ~isfield(test_info, 'overwrite')
     test_info.overwrite = false;
 end
-
-% prefix to the para files
-if ~isfield(test_info, 'para_prefix')
-    test_info.para_prefix = test_info.runtype;
-end

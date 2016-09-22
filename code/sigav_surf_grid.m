@@ -20,7 +20,6 @@ I.overwrite = false;
 I.onset_delay = 5;
 I.offset_delay = 1;
 I.remove_run_offsets = true;
-I.para_prefix = runtype;
 
 % default runs
 I.runs = read_runs(exp, us, runtype);
@@ -61,8 +60,13 @@ for i = 1:length(I.runs)
     TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
     
     % para file
+    if isfield(P.para_prefix)
+        para_prefix = P.para_prefix;
+    else
+        para_prefix = runtype;
+    end
     para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' I.para_prefix  '_r' num2str(r) '.par'];
+        '/' para_prefix  '_r' num2str(r) '.par'];
     
     % preprocessing directory with files in fsaverage space
     preproc_fsaverage_directory = [root_directory '/' exp '/analysis/preprocess' ...

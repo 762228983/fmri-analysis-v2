@@ -28,7 +28,6 @@ I.stat_to_plot = 'logP_permtest';
 I.color_range = NaN;
 I.plot_reliability = false;
 I.runs = read_runs(exp, us, runtype);
-I.para_prefix = runtype;
 I.n_perms = 0;
 I.analysis_type = 'glm';
 I.onset_delay = 5; % only applicable for signal averaging
@@ -76,9 +75,14 @@ for i = 1:length(I.runs)
     r = I.runs(i);
     fprintf('First level analysis of run %d\n',r); drawnow;
     
-    % read weighting file
+    % paradigm file
+    if isfield(P, 'para_prefix')
+        para_prefix = P.para_prefix;
+    else
+        para_prefix = runtype;
+    end
     para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' I.para_prefix  '_r' num2str(r) '.par'];
+        '/' para_prefix  '_r' num2str(r) '.par'];
     
     % TR
     TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>

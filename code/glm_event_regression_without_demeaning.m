@@ -102,11 +102,11 @@ beta_one_per_condition = ...
     regress_stats_ols_with_ones_regressor(Y, B * W_one_per_condition, eye(n_conditions)); %#ok<ASGLU>
 
 % fill in NaN entries
-beta_contrast = fillin_NaN_voxels(beta_contrast, voxels_without_NaN, 2);
-logP_ols = fillin_NaN_voxels(logP_ols, voxels_without_NaN, 2); %#ok<NASGU>
-contrast_variance = fillin_NaN_voxels(contrast_variance, voxels_without_NaN, 2); %#ok<NASGU>
-beta_one_per_condition = fillin_NaN_voxels(beta_one_per_condition, voxels_without_NaN, 2); %#ok<NASGU>
-beta_one_per_regressor = fillin_NaN_voxels(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
+beta_contrast = fillin_NaN(beta_contrast, voxels_without_NaN, 2);
+logP_ols = fillin_NaN(logP_ols, voxels_without_NaN, 2); %#ok<NASGU>
+contrast_variance = fillin_NaN(contrast_variance, voxels_without_NaN, 2); %#ok<NASGU>
+beta_one_per_condition = fillin_NaN(beta_one_per_condition, voxels_without_NaN, 2); %#ok<NASGU>
+beta_one_per_regressor = fillin_NaN(beta_one_per_regressor, voxels_without_NaN, 2); %#ok<NASGU>
 
 % save
 save(matfile, 'voxels_without_NaN', 'beta_contrast', ...
@@ -145,16 +145,16 @@ if n_perms > 0
     end
     
     % fill in NaN entries
-    beta_contrast_permtest = fillin_NaN_voxels(...
+    beta_contrast_permtest = fillin_NaN(...
         beta_contrast_permtest, voxels_without_NaN, 3); %#ok<NASGU>
-    logP_permtest = fillin_NaN_voxels(logP_permtest, voxels_without_NaN, 2); %#ok<NASGU>
+    logP_permtest = fillin_NaN(logP_permtest, voxels_without_NaN, 2); %#ok<NASGU>
         
     % save results to matfile
     save(matfile, 'beta_contrast_permtest', 'logP_permtest', '-append');
     
 end
 
-function Y = fillin_NaN_voxels(X, voxels_without_NaNs, DIM)
+function Y = fillin_NaN(X, voxels_without_NaNs, DIM)
 
 assert(size(X,DIM)==sum(voxels_without_NaNs));
 dims = size(X);

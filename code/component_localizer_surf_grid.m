@@ -88,8 +88,7 @@ function [beta_one_per_regressor, logP_residual_permtest, component_names] = ...
     'n_perms', component_info.n_perms, ...
     'analysis_type', component_info.analysis_type, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
-    'plot_reliability', false, 'overwrite', component_info.overwrite, ...
-    'para_prefix', component_info.para_prefix);
+    'plot_reliability', false, 'overwrite', component_info.overwrite);
 
 if length(localizer_runs_to_use)>1
     fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
@@ -125,12 +124,5 @@ end
 if ~isfield(component_info, 'overwrite')
     component_info.overwrite = false;
 end
-
-% prefix to the para files
-if ~isfield(component_info, 'para_prefix')
-    component_info.para_prefix = component_info.runtype;
-end
-
-
 
 
