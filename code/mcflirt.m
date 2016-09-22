@@ -34,6 +34,12 @@ if ~exist(preprocessing_directory,'dir');
     mkdir(preprocessing_directory);
 end
 
+% directory to save figures to
+figure_directory = strrep(preprocessing_directory, 'analysis', 'figures');
+if ~exist(figure_directory,'dir');
+    mkdir(figure_directory);
+end
+
 % volume used for motion-correction
 example_func_file = [preprocessing_directory '/example_func.nii.gz'];
 
@@ -75,4 +81,5 @@ if I.plot
     title(sprintf('%s, run %d',strrep(runtype,'_',' '),r));
     box off;
     export_fig([preprocessing_directory '/relrms.pdf'],'-pdf','-nocrop','-transparent');
+    export_fig([figure_directory '/relrms.pdf'],'-pdf','-nocrop','-transparent');
 end

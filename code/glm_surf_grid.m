@@ -123,12 +123,12 @@ for i = 1:length(I.runs)
     
     % file to save results of individual run analysis
     MAT_files_first_level{i} = ...
-        [analysis_directory '/r' num2str(r) '.mat'];
+        [analysis_directory '/' runtype '_r' num2str(r) '.mat'];
     
     % first level MAT files with permuted stats
     if I.n_perms > 0
         perm_MAT_files_first_level{i} = ...
-            [analysis_directory '/r' num2str(r) '_' num2str(I.n_perms) 'perms.mat'];
+            [analysis_directory '/' runtype '_r' num2str(r) '_' num2str(I.n_perms) 'perms.mat'];
     end
     
     % check if output files already exist
@@ -149,7 +149,7 @@ for i = 1:length(I.runs)
                 % save nuissance regressors
                 if ~isempty(X_nuissance)
                     nuissance_regressor_file = ...
-                        [analysis_directory '/r' num2str(r) '_nuissance.mat'];
+                        [analysis_directory '/' runtype '_r' num2str(r) '_nuissance.mat'];
                     save(nuissance_regressor_file, 'X_nuissance');
                 else
                     nuissance_regressor_file = [];
@@ -181,12 +181,12 @@ end
 if n_runs > 1
     
     % file to save results of second level analysis pooling across runs
-    MAT_file_second_level = [analysis_directory '/r' sprintf('%d', I.runs) '.mat'];
+    MAT_file_second_level = [analysis_directory '/' runtype '_r' sprintf('%d', I.runs) '.mat'];
     
     % second level MAT files with permuted stats
     if I.n_perms > 0
         perm_MAT_file_second_level = [analysis_directory ...
-            '/r' sprintf('%d', I.runs) '_' num2str(I.n_perms) 'perms.mat'];
+            '/' runtype '_r' sprintf('%d', I.runs) '_' num2str(I.n_perms) 'perms.mat'];
     else
         perm_MAT_file_second_level = [];
     end
