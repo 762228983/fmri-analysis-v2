@@ -18,12 +18,12 @@ for i = 1:n_runs
     
     % initialize weights
     if i == 1
-        [n_betas, n_voxels] = size(beta_contrast);
+        [n_betas, n_voxels] = size(beta_one_per_regressor);
         betas_all_runs = nan([n_betas, n_voxels, n_runs]);
     end
     
     % assign weights for this run
-    betas_all_runs(:,:,i) = beta_one_per_regressor';
+    betas_all_runs(:,:,i) = beta_one_per_regressor;
     
 end
 

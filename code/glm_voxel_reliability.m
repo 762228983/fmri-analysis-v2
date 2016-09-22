@@ -9,6 +9,7 @@ function [corr_test_retest, data_set_sizes, quantiles] = glm_voxel_reliability(.
 I.voxel_stat = 'beta_one_per_regressor';
 I.overwrite = false;
 I.group_runs = {};
+I.regressor_subset = {};
 I = parse_optInputs_keyvalue(varargin, I);
 
 % quantiles of the distribution to measure
@@ -27,6 +28,7 @@ if ~exist(mat_file, 'file') || I.overwrite
         
         % load weights for single run
         X = load(MAT_files_first_level{i}, I.voxel_stat, 'P');
+        P = X.P;
         
         % initialize weights
         if i == 1
@@ -37,9 +39,22 @@ if ~exist(mat_file, 'file') || I.overwrite
         % assign weights for this run
         stat_all_runs(:,:,i) = X.(I.voxel_stat);
         
+        % check number of betas
+        assert(length(P.regressor_names)==n_betas);
+        
     end
     clear X;
     
+    % select a subset of regressors
+    if ~isempty(I.regressor_subset)
+        xi = ismember(P.regressor_names, I.regressor_subset);
+        stat_all_runs = stat_all_runs(xi,:,:);
+        n_betas = sum(xi);
+        clear xi;
+    end
+    clear P;
+    
+    % average responses across runs
     if ~isempty(I.group_runs)
         n_run_groups = length(I.group_runs);
         stat_group_average = nan([n_betas,n_voxels,n_run_groups]);
@@ -49,7 +64,7 @@ if ~exist(mat_file, 'file') || I.overwrite
         stat_all_runs = stat_group_average;
         n_runs = n_run_groups;
     end
-    
+        
     % voxels without any NaNs
     voxels_without_NaNs = all(all(~isnan(stat_all_runs),1),3);
     
