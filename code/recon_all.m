@@ -39,7 +39,7 @@ if ~exist(freesurfer_subject_directory,'dir')
     fprintf('Creating Freesurfer directory:\n\n%s\n\n', freesurfer_subject_directory);
 end
 
-if ~exist([freesurfer_subject_directory '/surf/rh.inflated'],'file') && I.overwrite
+if ~exist([freesurfer_subject_directory '/surf/rh.inflated'],'file') || I.overwrite
     log_file = [log_directory '/recon-all_' subjid '.txt'];
     unix_freesurfer_version('5.3.0', ['nohup recon-all -all -subjid ' subjid ' > ' log_file ' &']);
     fprintf('Surface reconstruction begun\n\nCheck log-file for progress:\n\n%s\n', log_file);
