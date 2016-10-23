@@ -49,6 +49,8 @@ parameter_file = [root_directory '/' exp '/analysis/' I.analysis_type ...
 P = load(parameter_file);
 P = glm_default_parameters(P);
 
+
+
 % analysis directory
 figure_directory = strrep(analysis_directory, 'analysis', 'figures');
 

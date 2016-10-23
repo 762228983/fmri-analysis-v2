@@ -40,6 +40,8 @@ if ~exist(mat_file, 'file') || I.overwrite
         stat_all_runs(:,:,i) = X.(I.voxel_stat);
         
         % check number of betas
+        length(P.regressor_names)
+        n_betas
         assert(length(P.regressor_names)==n_betas);
         
     end
