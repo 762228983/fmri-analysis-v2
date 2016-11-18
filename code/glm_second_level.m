@@ -42,13 +42,15 @@ for i = 1:n_runs
         dfs = nan(n_runs,1);
         P = X.P;  %#ok<NASGU>
     end
-    
+    try
     beta_contrast_allruns(i,:,:) = X.beta_contrast;
     beta_one_per_regressor_allruns(i,:,:) = X.beta_one_per_regressor;
     contrast_variance_allruns(i,:,:) = X.contrast_variance;
     residual_allruns(i,:,:) = X.residual;
     dfs(i) = X.df;
-    
+    catch
+        keyboard
+    end
 end
 clear X;
 
