@@ -1,21 +1,23 @@
 function [MAT_file_second_level, MAT_files_first_level, ...
     perm_MAT_file_second_level, perm_MAT_files_first_level, ...
-    P, analysis_directory, figure_directory] = ...
+    P, analysis_directory, figure_directory, template_grid_file] = ...
     glm_surf_grid(exp, us, runtype, fwhm, analysis_name, ...
     grid_spacing_mm, grid_roi, varargin)
 
-% 2016-08-27: Modified how optional arguments are handled
+% 2016-08-27: Modified how optional arguments are handled, Sam NH
 %
-% 2016-08-31: Made the prefix of the para files an optional argument
+% 2016-08-31: Made the prefix of the para files an optional argument, Sam NH
 %
 % 2016-09-09: n_perms made an optional argument, permutation tests are saved as
-% a separate MAT file, requiring small changes to this wrapper function
+% a separate MAT file, requiring small changes to this wrapper function, Sam NH
 %
 % 2016-09-09: This function now directly calls first level analysis script
-% glm_event_regression.m, and handles whether or not to overwrite files
+% glm_event_regression.m, and handles whether or not to overwrite files, Sam NH
 %
 % 2016-09-09: Generalized glm_surf_grid so that it can also handled GLMs run on
-% signal averaged responses
+% signal averaged responses, Sam NH
+% 
+% 2016-11-18: Returns template_grid_file, Sam NH
 
 global root_directory;
 
