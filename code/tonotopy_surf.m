@@ -1,5 +1,7 @@
 function [bfmap, bestfreq_smooth_thresh_colorwarp_file] = tonotopy_surf(exp, us, hemi, fwhm, anova_thresh, varargin)
 
+global root_directory;
+
 % Parameters
 % anova_thresh = 3;
 % pval_thresh_direct_contrasts = 1.3;
@@ -9,9 +11,18 @@ addpath(strrep(path_to_this_file, 'tonotopy_surf.m','fs'));
 
 freesurfer_version = read_freesurfer_version(exp);
 
+keyboard;
+
 switch exp
     case {'pitch_resthr_v2','pitch_resthr_v4','naturalsound'}
         runtype = 'localizer';
+        model = 'block';
+        freqs = [200 400 800 1600 3200 6400];
+        condlevels = {'freq200','freq400','freq800','freq1600','freq3200','freq6400'};
+        basefreq = 100;
+        freeview_control_points = [log2(200/basefreq), log2(1131/basefreq), log2(6400/basefreq)];
+    case {'tono-pitch-localizer'}
+        runtype = 'tono_pitch_localizer';
         model = 'block';
         freqs = [200 400 800 1600 3200 6400];
         condlevels = {'freq200','freq400','freq800','freq1600','freq3200','freq6400'};
@@ -47,7 +58,7 @@ for i = 1:length(freqs)
     glmdir = ['~/freesurfer/fsaverage/sla/' subjid '/' hemi '_' idstring '_r' sprintf('%d',runnum)];
     allcopes_file = [glmdir '/allcopes.mgz'];
     if ~exist(allcopes_file,'file') || optInputs(varargin,'overwrite')
-        sla_surf(exp,us,['freq' num2str(freqs(i))],0,[],[],[],[],hemi,'localizer','block','nocorrection','fsaverage',varargin{:});
+        sla_surf(exp,us,['freq' num2str(freqs(i))],0,[],[],[],[],hemi,runtype,'block','nocorrection','fsaverage',varargin{:});
     end
     cope = MRIread([glmdir '/allcopes.mgz']);
     betas(:,i) = squeeze(mean(cope.vol,4));
@@ -81,9 +92,9 @@ else
 end
 if ~exist(anova_surf,'file') || optInputs(varargin,'overwrite')
     if optInputs(varargin, 'cluscorr')
-        anova_vol = [params('rootdir') exp '/analysis/sla/usub' num2str(us) '/' runtype '_anova_' sprintf('%s',condlevels{:}) '_r' sprintf('%d',runnum) '_' model '_' num2str(fwhm_vol*100,'%.0f') 'mm.gfeat/cope1.feat/thresh_zfstat1.nii.gz'];
+        anova_vol = [root_directory '/' exp '/analysis/sla/usub' num2str(us) '/' runtype '_anova_' sprintf('%s',condlevels{:}) '_r' sprintf('%d',runnum) '_' model '_' num2str(fwhm_vol*100,'%.0f') 'mm.gfeat/cope1.feat/thresh_zfstat1.nii.gz'];
     else
-        anova_vol = [params('rootdir') exp '/analysis/sla/usub' num2str(us) '/' runtype '_anova_' sprintf('%s',condlevels{:}) '_r' sprintf('%d',runnum) '_' model '_' num2str(fwhm_vol*100,'%.0f') 'mm.gfeat/cope1.feat/stats/zfstat1.nii.gz'];
+        anova_vol = [root_directory '/' exp '/analysis/sla/usub' num2str(us) '/' runtype '_anova_' sprintf('%s',condlevels{:}) '_r' sprintf('%d',runnum) '_' model '_' num2str(fwhm_vol*100,'%.0f') 'mm.gfeat/cope1.feat/stats/zfstat1.nii.gz'];
     end
     regfile = regfile_stdLAS2anatRAS(exp, us, model, varargin{:});
     refvol = ['~/freesurfer/' subjid '/mri/orig.mgz'];
@@ -155,7 +166,7 @@ end
 %     
 %     x = sprintf('-%d',setdiff(freqs,freqs(i)));
 %     con = ['freq' num2str(freqs(i)) '_vs_freq' x(2:end)];
-%     sla_surf(exp,us,con,fwhm,[],[],[],[],hemi,'localizer','block','nocorrection','fsaverage',varargin{:});
+%     sla_surf(exp,us,con,fwhm,[],[],[],[],hemi,runtype,'block','nocorrection','fsaverage',varargin{:});
 %     
 %     idstring = [con '_fwhm' num2str(fwhm) '_projfrac' num2str(projfrac(1)) '-' num2str(projfrac(2)) '_trilinear_' runtype '_' model  '_' params('smooth') 'mm'];
 %     glmdir = ['~/freesurfer/fsaverage/sla/' subjid '/' hemi '_' idstring '_r' sprintf('%d',runnum)];
@@ -170,7 +181,7 @@ end
 %     for j = i+1:length(freqs)
 %         
 %         con = ['freq' num2str(freqs(i)) '_vs_freq' num2str(freqs(j))];
-%         sla_surf(exp,us,con,fwhm,[],[],[],[],hemi,'localizer','block','nocorrection','fsaverage',varargin{:});
+%         sla_surf(exp,us,con,fwhm,[],[],[],[],hemi,runtype,'block','nocorrection','fsaverage',varargin{:});
 %         idstring = [con '_fwhm' num2str(fwhm) '_projfrac' num2str(projfrac(1)) '-' num2str(projfrac(2)) '_trilinear_' runtype '_' model  '_' params('smooth') 'mm'];
 %         glmdir = ['~/freesurfer/fsaverage/sla/' subjid '/' hemi '_' idstring '_r' sprintf('%d',runnum)];
 %         sig = MRIread([glmdir '/osgm/sig.mgh']);

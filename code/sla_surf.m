@@ -3,7 +3,9 @@ function sla_surf(exp,us,con,fwhm_surf,correction,con_sign,voxthresh,nsim,hemi,r
 
 %% Paramaters
 
-analysisdir = [params('rootdir') exp '/analysis/'];
+global root_directory;
+
+analysisdir = [root_directory '/' exp '/analysis/'];
 subjid = [exp '_us' num2str(us)];
 
 % analysis can either be done on either the template
@@ -79,7 +81,7 @@ if optInputs(varargin,'pval')
     pval = varargin{optInputs(varargin,'pval')+1};
 end
 
-figure_directory = [params('rootdir') '' exp '/figures/sla_surf/'];
+figure_directory = [root_directory '/' exp '/figures/sla_surf/'];
 if ~exist(figure_directory,'dir')
     mkdir(figure_directory);
 end

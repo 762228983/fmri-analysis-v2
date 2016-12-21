@@ -25,6 +25,9 @@ I.K = [];
 I.use_sbatch = false;
 I.overwrite_predictions = false;
 I.overwrite_correlations = false;
+I.mem = '8000';
+I.std_feats = true;
+I.groups = [];
 I = parse_optInputs_keyvalue(varargin, I);
 
 % predictions
@@ -53,15 +56,19 @@ if ~exist(prediction_MAT_file, 'file') || I.overwrite_predictions
         end
         [Yh, folds] = regress_predictions_parallelize_with_slurm(...
             F, D, I.test_folds, I.regression_method, I.K, I.train_folds, ...
-            directory_to_save_results_for_each_voxel);
+            directory_to_save_results_for_each_voxel, 'mem', I.mem, ...
+            'std_feats', I.std_feats, 'groups', I.groups);
         
     else
         
         Yh = nan(size(D));
         for i = 1:size(D,2)
+            tic;
             fprintf('Voxel %d\n',i); drawnow;
-            [Yh(:,i), ~, ~, folds] = regress_predictions_from_3way_crossval(F, D(:,i), ...
-                I.test_folds, I.regression_method, I.K, I.train_folds);
+            [Yh(:,i), ~, ~, folds] = regress_predictions_from_3way_crossval(...
+                F, D(:,i),I.test_folds, I.regression_method, I.K, I.train_folds, ...
+                [], I.std_feats, I.groups);
+            toc;
         end
         
     end

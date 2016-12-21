@@ -1,7 +1,10 @@
 function funcLAS2highresRAS = regfile_funcLAS2anatRAS(exp, us, runtype, r, model, varargin)
 
+global root_directory;
+
+[~, freesurfer_version] = read_version_info(exp);
 fwhm = read_smooth(exp, varargin{:});
-analysisdir = [params('rootdir') exp '/analysis/'];
+analysisdir = [root_directory '/' exp '/analysis/'];
 subjid = [exp '_us' num2str(us)];
 
 funcLAS = [analysisdir 'fla/usub' num2str(us) '/' runtype '_r' num2str(r) '_' model '_' num2str(100*fwhm, '%.0f') 'mm.feat/reg/example_func.nii.gz'];
@@ -14,7 +17,7 @@ highresLAS2highresRAS = [analysisdir 'fla/usub' num2str(us) '/' runtype '_r' num
 funcLAS2highresRAS = [analysisdir 'fla/usub' num2str(us) '/' runtype '_r' num2str(r) '_' model '_' num2str(100*fwhm, '%.0f') 'mm.feat/reg/example_func2highresRAS.dat'];
 
 if ~exist(funcLAS2highresRAS, 'file') || optInputs(varargin, 'overwrite')
-    unix_freesurfer(['tkregister2 --s ' subjid ' --mov ' funcLAS ' --targ ' highresLAS ' --fsl ' funcLAS2highresLAS_fsl ' --reg ' funcLAS2highresLAS_freesurf ' --noedit ']);
-    unix_freesurfer(['tkregister2 --s ' subjid ' --mov ' highresLAS ' --targ ' highresRAS ' --reg ' highresLAS2highresRAS ' --noedit --regheader ']);
-    unix_freesurfer(['mri_matrix_multiply -im ' funcLAS2highresLAS_freesurf ' -im ' highresLAS2highresRAS ' -om ' funcLAS2highresRAS]);
+    unix_freesurfer_version(freesurfer_version, ['tkregister2 --s ' subjid ' --mov ' funcLAS ' --targ ' highresLAS ' --fsl ' funcLAS2highresLAS_fsl ' --reg ' funcLAS2highresLAS_freesurf ' --noedit ']);
+    unix_freesurfer_version(freesurfer_version, ['tkregister2 --s ' subjid ' --mov ' highresLAS ' --targ ' highresRAS ' --reg ' highresLAS2highresRAS ' --noedit --regheader ']);
+    unix_freesurfer_version(freesurfer_version, ['mri_matrix_multiply -im ' funcLAS2highresLAS_freesurf ' -im ' highresLAS2highresRAS ' -om ' funcLAS2highresRAS]);
 end
