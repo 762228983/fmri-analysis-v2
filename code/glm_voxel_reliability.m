@@ -1,5 +1,5 @@
 function [corr_test_retest, data_set_sizes, quantiles] = glm_voxel_reliability(...
-    MAT_files_first_level, analysis_directory, figure_directory, varargin)
+    MAT_files_first_level, analysis_directory, figure_directory, runtype, varargin)
 
 % Reliability of regressors across voxels
 % 
@@ -18,7 +18,7 @@ n_quantiles = length(quantiles);
 
 % measure test-retest correlation for different data set sizes
 n_smps = 1e3;
-mat_file = [analysis_directory '/voxel_reliability_' I.voxel_stat '_' num2str(n_smps) 'smps.mat'];
+mat_file = [analysis_directory '/' runtype '_voxel_reliability_' I.voxel_stat '_' num2str(n_smps) 'smps.mat'];
 if ~exist(mat_file, 'file') || I.overwrite
         
     n_runs = length(MAT_files_first_level);
@@ -105,7 +105,8 @@ data_set_sizes = [data_set_sizes, n_runs];
 n_data_set_sizes = n_data_set_sizes+1; %#ok<NASGU>
 
 % plot
-figure_fname = [figure_directory '/voxel_reliability_' I.voxel_stat '_' num2str(n_smps) 'smps.pdf'];
+figure_fname = [figure_directory '/' runtype '_voxel_reliability_' ...
+    I.voxel_stat '_' num2str(n_smps) 'smps.pdf'];
 if ~exist(figure_fname, 'file') || I.overwrite
     figure;
     cols = parula(n_quantiles);

@@ -18,6 +18,9 @@ function [MAT_file_second_level, MAT_files_first_level, ...
 % signal averaged responses, Sam NH
 % 
 % 2016-11-18: Returns template_grid_file, Sam NH
+% 
+% 2017-01-09: Made it possible to combine data across runs before performing a
+% first level analysis, Sam NH
 
 global root_directory;
 
@@ -39,6 +42,8 @@ I.offset_delay = 1; % only applicable for signal averaging
 I.whiten = false;
 I.renderer = 'opengl';
 I.remove_unspecified_trials = false; 
+I.combine_runs_before_fla = false;
+I.demean_runs = true;
 I = parse_optInputs_keyvalue(varargin, I);
 if I.overwrite
     I.overwrite_first_level = true;
@@ -71,47 +76,79 @@ if ~exist(figure_directory, 'dir')
     mkdir(figure_directory);
 end
 
-%% First level analysis
+% prefix for the paradigm file
+if isfield(P, 'para_prefix')
+    para_prefix = P.para_prefix;
+else
+    para_prefix = runtype;
+end
+
+%% Ensure all surface files exist
+
+for i = 1:length(I.runs)
+    downsample_surface_timecourses(exp, us, runtype, I.runs(i), fwhm, ...
+        grid_spacing_mm, grid_roi, 'plot', false);
+end
+
+%% Combine across runs first
+
+if I.combine_runs_before_fla
+    
+    % combine para files
+    combine_runs_para_file(exp, us, para_prefix, {I.runs}, ...
+        'combined_para_prefix',  para_prefix);
+    
+    % combine surface grid files
+    combine_runs_surf_grid(exp, us, runtype, {I.runs}, ...
+        fwhm, grid_roi, grid_spacing_mm, 'combined_runtype',  runtype, ...
+        'demean_runs', I.demean_runs);
+    
+    % sets of runs for the first level analysis
+    fla_run_sets = {I.runs};
+    
+else
+    
+    fla_run_sets = cell(1, length(I.runs));
+    for i = 1:length(I.runs)
+        fla_run_sets{i} = I.runs(i); 
+    end
+    
+end
+
+%% First level analysis separately for each run
 
 % create cell struction with para files and data files
 fprintf('Converting surface files to data matrix...\n');
-n_runs = length(I.runs);
-para_files = cell(1, n_runs);
-data_matrix_files = cell(1, n_runs);
-MAT_files_first_level = cell(1, n_runs);
-perm_MAT_files_first_level = cell(1, n_runs);
+n_run_sets = length(fla_run_sets);
+para_files = cell(1, n_run_sets);
+data_matrix_files = cell(1, n_run_sets);
+MAT_files_first_level = cell(1, n_run_sets);
+perm_MAT_files_first_level = cell(1, n_run_sets);
 
-for i = 1:length(I.runs)
+for i = 1:n_run_sets
     
-    r = I.runs(i);
-    fprintf('First level analysis of run %d\n',r); drawnow;
+    % string with all of the runs to be analyzed in this set
+    run_idstring = sprintf('%d',fla_run_sets{i});
     
-    % paradigm file
-    if isfield(P, 'para_prefix')
-        para_prefix = P.para_prefix;
-    else
-        para_prefix = runtype;
-    end
+    % print string to command window
+    fprintf('First level analysis of run(s) %s\n', run_idstring); drawnow;
+    
+    % para file
     para_files{i} = [root_directory '/' exp '/data/para/usub' num2str(us) ...
-        '/' para_prefix  '_r' num2str(r) '.par'];
+        '/' para_prefix  '_r' run_idstring '.par'];
     
     % TR
-    TR = read_functional_scan_parameters(exp,us,runtype,r); %#ok<NASGU>
+    TR = read_functional_scan_parameters(exp,us,runtype,fla_run_sets{i}(1)); %#ok<NASGU>
     
     % preprocessing directory with files in fsaverage space
-    preproc_fsaverage_directory = [root_directory '/' exp '/analysis/preprocess' ...
-        '/usub' num2str(us) '/' runtype '_r' num2str(r) '/myfsaverage'];
+    preproc_fsaverage_directory = [root_directory '/' exp '/analysis' ...
+        '/preprocess/usub' num2str(us) '/' ...
+        runtype '_r' run_idstring '/myfsaverage'];
     
     % input surface grid
     grid_file = [preproc_fsaverage_directory '/' ...
         'smooth-' num2str(fwhm) 'mm' '_' ...
         'grid-' num2str(grid_spacing_mm) 'mm' '_' grid_roi '.mat'];
-    
-    % downsample data
-    if ~exist(grid_file, 'file')
-        downsample_surface_timecourses(exp, us, runtype, r, fwhm, ...
-            grid_spacing_mm, grid_roi, 'plot', false);
-    end
     
     % reformated data matrix to use as input to the GLM analysis below
     data_matrix_files{i} = ...
@@ -140,12 +177,21 @@ for i = 1:length(I.runs)
     
     % file to save results of individual run analysis
     MAT_files_first_level{i} = ...
-        [analysis_directory '/' runtype '_r' num2str(r) '.mat'];
+        [analysis_directory '/' runtype '_r' run_idstring '.mat'];
     
     % first level MAT files with permuted stats
     if I.n_perms > 0
         perm_MAT_files_first_level{i} = ...
-            [analysis_directory '/' runtype '_r' num2str(r) '_' num2str(I.n_perms) 'perms.mat'];
+            [analysis_directory '/' runtype '_r' run_idstring ...
+            '_' num2str(I.n_perms) 'perms.mat'];
+    end
+    
+    % if multiple runs, indicate this is a first level analysis
+    if length(fla_run_sets{i})>1
+        MAT_files_first_level{i} = ...
+            strrep(MAT_files_first_level{i}, '.mat', '_fla.mat');
+        perm_MAT_files_first_level{i} = ...
+            strrep(perm_MAT_files_first_level{i}, '.mat', '_fla.mat');
     end
     
     % check if output files already exist
@@ -159,14 +205,15 @@ for i = 1:length(I.runs)
                 % add white matter regressors
                 X_nuissance = [];
                 if P.n_whitematter_PCs > 0
+                    error('Need to set this up to work with run sets');
                     PCs = whitematter_PCs(exp, us, runtype, r, 'motcorr', 'bbreg');
-                    X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)]; %#ok<AGROW>
+                    X_nuissance = [X_nuissance; PCs(:,1:P.n_whitematter_PCs)];
                 end
                 
                 % save nuissance regressors
                 if ~isempty(X_nuissance)
-                    nuissance_regressor_file = ...
-                        [analysis_directory '/' runtype '_r' num2str(r) '_nuissance.mat'];
+                    nuissance_regressor_file = [analysis_directory '/' runtype ...
+                        '_r' run_idstring '_nuissance.mat'];
                     save(nuissance_regressor_file, 'X_nuissance');
                 else
                     nuissance_regressor_file = [];
@@ -196,7 +243,7 @@ end
 
 %% Second level analysis
 
-if n_runs > 1
+if ~I.combine_runs_before_fla && length(I.runs) > 1
     
     % file to save results of second level analysis pooling across runs
     MAT_file_second_level = [analysis_directory '/' runtype '_r' sprintf('%d', I.runs) '.mat'];
@@ -230,8 +277,6 @@ end
 %% Analysis concatenating across runs
 
 
-% 
-% 
 % for i = 1:length(I.runs)
 %     
 %                 % first level regression
@@ -243,15 +288,15 @@ end
 
 %% Reliability measures
 
-if n_runs > 1 && I.plot_reliability
+if length(MAT_files_first_level) > 1 && I.plot_reliability
     
     % plot reliability of contrast across runs
     glm_contrast_map_reliability(MAT_files_first_level,...
-        analysis_directory, figure_directory, 'overwrite', I.overwrite);
+        analysis_directory, figure_directory, runtype, 'overwrite', I.overwrite);
     
     % reliability of individual voxel responses across regressors
     glm_voxel_reliability(MAT_files_first_level,...
-        analysis_directory, figure_directory, 'overwrite', I.overwrite);
+        analysis_directory, figure_directory, runtype, 'overwrite', I.overwrite);
     
     % % plot reliability of response profile across runs
     % glm_regressor_response_reliability(MAT_files_first_level,...
@@ -334,7 +379,7 @@ for i = 1:n_maps
             otherwise
                 error('No matching case');
         end
-        figure_file = [figure_directory '/' 'pmap_' I.stat_to_plot '_' ...
+        figure_file = [figure_directory '/' runtype '_pmap_' I.stat_to_plot '_' ...
             fname_substring '_' hemis{q} '_colrange_' ...
             num2str(color_range(1)) '_' num2str(color_range(2)) '.png'];
         export_fig(figure_file,'-png','-r100','-nocrop');

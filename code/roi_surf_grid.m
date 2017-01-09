@@ -5,9 +5,12 @@ function [psc, condition_names, n_voxels_per_run_and_threshold] = ...
 % Primary top-level script for performing ROI analyses
 %
 % 2016-08-26: Created, Sam NH
-% 
+%
 % 2016-09-10: Small changes needed to keep accomodate changes made to other
 % functions this script relies on.
+%
+% 2017-01-09: Modified to accomodate combining data across runs in the first
+% level analysis
 
 I.verbose = true;
 I.anatomical_mask = '';
@@ -43,7 +46,7 @@ for k = 1:length(test_info.runs) % loop through runs
     [voxel_psc, condition_names] = ...
         psc_single_run(test_info, us, test_info.runs(k), ...
         fwhm, grid_spacing_mm, grid_roi);
-
+    
     % create the mask
     n_voxels = size(voxel_psc,2);
     if isempty(I.anatomical_mask)
@@ -115,7 +118,7 @@ for k = 1:length(test_info.runs) % loop through runs
     % check there are no exactly zero values
     assert(~any(localizer_contrast_stat_matrix(:)==0));
     % localizer_contrast_stat_matrix(localizer_contrast_stat_matrix==0) = NaN;
-        
+    
     % loop through all combinations of thresholds, selecting voxels, and
     % measuring mean PSC values
     for i = 1:prod(n_thresholds_per_localizer)
@@ -199,34 +202,36 @@ function loc_stat = localizer_stat(...
     'analysis_type',  localizer_info.analysis_type, ...
     'n_perms', localizer_info.n_perms, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
-    'plot_reliability', false, 'overwrite', localizer_info.overwrite);
+    'plot_reliability', false, 'overwrite', localizer_info.overwrite, ...
+    'combine_runs_before_fla', localizer_info.combine_runs_before_fla);
 
-if length(localizer_runs_to_use) > 1 ...
-        && localizer_info.n_perms > 0  % second level, permutation test
-    load(perm_MAT_file_second_level, 'logP_permtest');
-    load(MAT_file_second_level, 'P');
-    loc_stat = logP_permtest;
+use_first_level = (length(localizer_runs_to_use) == 1 ...
+    || localizer_info.combine_runs_before_fla);
 
-elseif length(localizer_runs_to_use) > 1 ...
-        && localizer_info.n_perms == 0  % second level, fixed effects
-    load(MAT_file_second_level, 'logP_fixed_effects', 'P');
-    loc_stat = logP_fixed_effects;
-    
-elseif length(localizer_runs_to_use) == 1 ...
-        && localizer_info.n_perms > 0  % first level, permutation test
+use_permtest = localizer_info.n_perms > 0;
+
+if use_first_level && use_permtest % first level, permutation test
     load(perm_MAT_files_first_level{1}, 'logP_permtest');
     load(MAT_files_first_level{1}, 'P');
     loc_stat = logP_permtest;
     
-elseif length(localizer_runs_to_use) == 1 ...
-        && localizer_info.n_perms == 0  % first level, OLS
+elseif use_first_level && ~use_permtest  % first level, OLS
     load(MAT_files_first_level{1}, 'logP_ols', 'P');
     loc_stat = logP_ols;
+    
+elseif ~use_first_level && use_permtest  % second level, permutation test
+    load(perm_MAT_file_second_level, 'logP_permtest');
+    load(MAT_file_second_level, 'P');
+    loc_stat = logP_permtest;
+    
+elseif ~use_first_level && ~use_permtest  % second level, fixed effects
+    load(MAT_file_second_level, 'logP_fixed_effects', 'P');
+    loc_stat = logP_fixed_effects;
     
 else
     
     error('No matching case');
-
+    
 end
 
 % select the row of loc_stat with the desired contrast
@@ -272,7 +277,11 @@ for j = 1:n_localizers
     if ~isfield(localizer_info(j), 'overwrite')
         localizer_info(j).overwrite = false;
     end
-   
+    
+    if ~isfield(localizer_info(j), 'combine_runs_before_fla')
+        localizer_info(j).combine_runs_before_fla = false;
+    end
+    
 end
 
 

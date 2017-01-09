@@ -1,5 +1,5 @@
 function corr_test_retest = glm_contrast_map_reliability(...
-    matfile_first_level, analysis_directory, figure_directory, varargin)
+    matfile_first_level, analysis_directory, figure_directory, runtype, varargin)
 
 % global root_directory;
 % 
@@ -23,7 +23,7 @@ n_data_set_sizes = length(data_set_sizes);
     
 % measure test-retest correlation for different data set sizes
 n_smps = 1e3;
-mat_file = [analysis_directory '/map-reliability_' num2str(n_smps) 'smps.mat'];
+mat_file = [analysis_directory '/' runtype '_map-reliability_' num2str(n_smps) 'smps.mat'];
 if ~exist(mat_file, 'file') || I.overwrite
     
     
@@ -83,7 +83,7 @@ n_data_set_sizes = n_data_set_sizes+1; %#ok<NASGU>
 load(matfile_first_level{1}, 'P');
 
 % plot
-figure_fname = [figure_directory '/map-reliability_' num2str(n_smps) 'smps.pdf'];
+figure_fname = [figure_directory '/' runtype '_map-reliability_' num2str(n_smps) 'smps.pdf'];
 if I.plot_figure
     figure;
     errorbar_plot_from_samples(corr_test_retest, log2(data_set_sizes));

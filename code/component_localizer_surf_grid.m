@@ -3,6 +3,9 @@ function [comp_psc, condition_names, component_names] = ...
     component_info, test_info, fwhm, varargin )
 
 % 2016-09-09: Last modified, Sam NH
+%
+% 2017-01-09: Modified to accomodate combining data across runs in the first
+% level analysis
 
 % optional arguments
 I.verbose = true;
@@ -110,12 +113,18 @@ function [beta_one_per_regressor, logP_residual_permtest, component_names] = ...
     'overwrite_first_level', component_info.overwrite_first_level, ...
     'overwrite_second_level', component_info.overwrite_second_level, ...
     'whiten', component_info.whiten, ...
-    'remove_unspecified_trials', component_info.remove_unspecified_trials);
+    'remove_unspecified_trials', component_info.remove_unspecified_trials, ...
+    'combine_runs_before_fla', component_info.combine_runs_before_fla);
 
-if length(localizer_runs_to_use)>1
+use_first_level = (length(localizer_runs_to_use) == 1 ...
+    || component_info.combine_runs_before_fla);
+
+use_permtest = component_info.n_perms > 0;
+
+if use_first_level
     fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
     load(MAT_file_second_level, 'beta_one_per_regressor');
-    if component_info.n_perms > 0
+    if use_permtest
         load(perm_MAT_file_second_level, 'logP_residual_permtest');
     else
         logP_residual_permtest = [];
@@ -124,7 +133,7 @@ else
     fprintf('First level file\n%s\n', MAT_files_first_level{1}); drawnow;
     assert(length(MAT_files_first_level)==1);
     load(MAT_files_first_level{1}, 'beta_one_per_regressor');
-    if component_info.n_perms > 0
+    if use_permtest
         load(perm_MAT_files_first_level{1}, 'logP_residual_permtest');
     else
         logP_residual_permtest = [];
@@ -159,3 +168,7 @@ if ~isfield(component_info, 'remove_unspecified_trials')
     component_info.remove_unspecified_trials = false;
 end
 
+% whether or not to combine across runs before performing first level analysis
+if ~isfield(component_info, 'combine_runs_before_fla')
+    component_info.combine_runs_before_fla = false;
+end

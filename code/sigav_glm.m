@@ -84,6 +84,7 @@ if I.remove_unspecified_trials
 end
 
 %% convert to psc
+
 % -> trials x voxels
 psc = 100 * (response - repmat(null_response, n_trials, 1)) ...
     ./ repmat(null_response, n_trials, 1);  
@@ -135,6 +136,7 @@ if I.whiten
     Z = (psc * psc')^(-1/2);
     psc = Z * psc;
     W = Z * W;
+    W_one_per_condition = Z * W_one_per_condition;
 end
 
 %% Regression analyses
@@ -142,7 +144,7 @@ end
 % regress weighted event matrix
 % -> contrasts x voxels
 [beta_contrast, logP_ols, contrast_variance, df, residual] = ...
-    regress_stats_ols( psc, W, C, 'demean', false); %#ok<ASGLU>
+    regress_stats_ols(psc, W, C, 'demean', false); %#ok<ASGLU>
 
 % separate beta weight for regressor
 % redundant with previous analysis if contrast matrix is the identity
