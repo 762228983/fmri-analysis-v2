@@ -7,7 +7,13 @@ function corr_test_retest = glm_contrast_map_reliability(...
 
 % optional arguments and defaults
 I.overwrite = false;
+I.plot_figure = true;
+I.keyboard = false;
 I = parse_optInputs_keyvalue(varargin, I);
+
+if I.keyboard
+    keyboard;
+end
 
 % differt numbers of runs to test when measuring split-half reliability
 n_runs = length(matfile_first_level);
@@ -73,9 +79,12 @@ corr_test_retest = cat(2, corr_test_retest, corr_allruns);
 data_set_sizes = [data_set_sizes, n_runs];
 n_data_set_sizes = n_data_set_sizes+1; %#ok<NASGU>
 
+% load parameter structure
+load(matfile_first_level{1}, 'P');
+
 % plot
 figure_fname = [figure_directory '/map-reliability_' num2str(n_smps) 'smps.pdf'];
-if ~exist(figure_fname, 'file') || I.overwrite
+if I.plot_figure
     figure;
     errorbar_plot_from_samples(corr_test_retest, log2(data_set_sizes));
     set(gca, 'XTick', log2(data_set_sizes), 'XTickLabel', data_set_sizes);

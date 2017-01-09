@@ -21,6 +21,24 @@ if I.thresh_logP_residual_permtest > -inf
     component_info.n_perms = 100;
 end
 
+% re-do first level analyses if requested
+if component_info.overwrite_first_level
+    for i = 1:length(component_info.runs)
+        glm_surf_grid(...
+            component_info.exp, us, component_info.runtype, ...
+            fwhm, component_info.analysis_name, ...
+            grid_spacing_mm, grid_roi, ...
+            'n_perms', component_info.n_perms, ...
+            'analysis_type', component_info.analysis_type, ...
+            'runs', component_info.runs(i), 'plot_surf', false,...
+            'plot_reliability', false, ...
+            'overwrite_first_level', true, ...
+            'whiten', component_info.whiten, ...
+            'remove_unspecified_trials', component_info.remove_unspecified_trials);
+    end
+    component_info.overwrite_first_level = false;
+end
+
 for k = 1:length(test_info.runs) % loop through runs
     
     if I.verbose
@@ -88,7 +106,11 @@ function [beta_one_per_regressor, logP_residual_permtest, component_names] = ...
     'n_perms', component_info.n_perms, ...
     'analysis_type', component_info.analysis_type, ...
     'runs', localizer_runs_to_use, 'plot_surf', false,...
-    'plot_reliability', false, 'overwrite', component_info.overwrite);
+    'plot_reliability', false, ...
+    'overwrite_first_level', component_info.overwrite_first_level, ...
+    'overwrite_second_level', component_info.overwrite_second_level, ...
+    'whiten', component_info.whiten, ...
+    'remove_unspecified_trials', component_info.remove_unspecified_trials);
 
 if length(localizer_runs_to_use)>1
     fprintf('Second level file\n%s\n', MAT_file_second_level); drawnow;
@@ -120,9 +142,20 @@ if ~isfield(component_info, 'runs')
         component_info.exp, us, component_info.runtype);
 end
 
-% test info
-if ~isfield(component_info, 'overwrite')
-    component_info.overwrite = false;
+% whether or not to overwrite first or second level files
+if ~isfield(component_info, 'overwrite_first_level')
+    component_info.overwrite_first_level = false;
+end
+if ~isfield(component_info, 'overwrite_second_level')
+    component_info.overwrite_second_level = false;
+end
+if isfield(component_info, 'overwrite') && component_info.overwrite
+    component_info.overwrite_first_level = true;
+    component_info.overwrite_second_level = true;
 end
 
+% whether or not to remove conditions not specified in the parameter matrix
+if ~isfield(component_info, 'remove_unspecified_trials')
+    component_info.remove_unspecified_trials = false;
+end
 

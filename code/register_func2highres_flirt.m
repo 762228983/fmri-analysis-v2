@@ -13,7 +13,12 @@ I.overwrite = false;
 I.search_range = '-180 180';
 I.plot_with_freeview = false;
 I.plot_with_tkregister2 = true;
+I.keyboard = false;
 I = parse_optInputs_keyvalue(varargin, I);
+
+if I.keyboard
+    keyboard;
+end
 
 % degrees of freedom, 6 = rigid, 12 = affine
 dof = '6';

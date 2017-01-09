@@ -27,7 +27,9 @@ I.overwrite_predictions = false;
 I.overwrite_correlations = false;
 I.mem = '8000';
 I.std_feats = true;
+I.batch_size = 1000;
 I.groups = [];
+I.max_run_time_in_min = num2str(60*10);
 I = parse_optInputs_keyvalue(varargin, I);
 
 % predictions
@@ -57,7 +59,9 @@ if ~exist(prediction_MAT_file, 'file') || I.overwrite_predictions
         [Yh, folds] = regress_predictions_parallelize_with_slurm(...
             F, D, I.test_folds, I.regression_method, I.K, I.train_folds, ...
             directory_to_save_results_for_each_voxel, 'mem', I.mem, ...
-            'std_feats', I.std_feats, 'groups', I.groups);
+            'std_feats', I.std_feats, 'groups', I.groups, ...
+            'batch_size', I.batch_size, ...
+            'max_run_time_in_min', I.max_run_time_in_min);
         
     else
         

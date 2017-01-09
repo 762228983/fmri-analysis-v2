@@ -13,11 +13,16 @@ function MAT_file = sigav_glm(data_matrix_file, para_file, parameter_file, ...
 % 2016-09-09: Last edited, Sam NH
 % 
 % 2016-09-21: Modified to deal with zero regressors and contrasts, Sam NH
+% 
+% 2016-12-21: Made it possible to whiten the data before performing regression
+% analysis. Doing so causes the regression analysis to perform LCMV.
 
 % optional arguments and defaults
 I.onset_delay = 5;
 I.offset_delay = 1;
 I.n_perms = 0;
+I.whiten = false;
+I.remove_unspecified_trials = false; 
 I = parse_optInputs_keyvalue(varargin, I);
 
 % analysis parameters
@@ -63,8 +68,22 @@ clear xi t nTR;
 xi = strcmp('NULL', T.conds);
 assert(sum(xi) > 0);
 null_response = mean(response(xi,:),1);
+clear xi;
 
-% convert to psc
+%% Optionally remove trials that did not have a corresponding conditionrather than setting them to zero
+
+if I.remove_unspecified_trials
+    xi = ismember(T.conds, P.condition_names);
+    response  = response(xi,:);
+    T.conds = T.conds(xi,:);
+    T.condition_indices = T.condition_indices(xi,:);
+    T.onsets = T.onsets(xi,:);
+    T.durs = T.durs(xi,:);
+    n_trials = sum(xi);
+    clear xi;
+end
+
+%% convert to psc
 % -> trials x voxels
 psc = 100 * (response - repmat(null_response, n_trials, 1)) ...
     ./ repmat(null_response, n_trials, 1);  
@@ -108,6 +127,14 @@ for i = 1:n_contrasts
         error('Contrast "%s" is no longer zero mean when excluding zero regressors\n',...
             P.contrast_names{i});
     end
+end
+
+%% Optionally whiten data and apply whitening matrix to the regressors as well
+
+if I.whiten
+    Z = (psc * psc')^(-1/2);
+    psc = Z * psc;
+    W = Z * W;
 end
 
 %% Regression analyses

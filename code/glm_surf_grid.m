@@ -25,6 +25,8 @@ global root_directory;
 
 % optional arguments and defaults
 I.overwrite = false;
+I.overwrite_second_level = false;
+I.overwrite_first_level = false;
 I.plot_surf = false;
 I.stat_to_plot = 'logP_permtest';
 I.color_range = NaN;
@@ -34,7 +36,14 @@ I.n_perms = 0;
 I.analysis_type = 'glm';
 I.onset_delay = 5; % only applicable for signal averaging
 I.offset_delay = 1; % only applicable for signal averaging
+I.whiten = false;
+I.renderer = 'opengl';
+I.remove_unspecified_trials = false; 
 I = parse_optInputs_keyvalue(varargin, I);
+if I.overwrite
+    I.overwrite_first_level = true;
+    I.overwrite_second_level = true;
+end
 
 %% Directories / setup
 
@@ -50,8 +59,6 @@ parameter_file = [root_directory '/' exp '/analysis/' I.analysis_type ...
     '/' analysis_name '/parameters.mat'];
 P = load(parameter_file);
 P = glm_default_parameters(P);
-
-
 
 % analysis directory
 figure_directory = strrep(analysis_directory, 'analysis', 'figures');
@@ -100,6 +107,12 @@ for i = 1:length(I.runs)
         'smooth-' num2str(fwhm) 'mm' '_' ...
         'grid-' num2str(grid_spacing_mm) 'mm' '_' grid_roi '.mat'];
     
+    % downsample data
+    if ~exist(grid_file, 'file')
+        downsample_surface_timecourses(exp, us, runtype, r, fwhm, ...
+            grid_spacing_mm, grid_roi, 'plot', false);
+    end
+    
     % reformated data matrix to use as input to the GLM analysis below
     data_matrix_files{i} = ...
         strrep(grid_file, '.mat', '_unwrapped_data_matrix.mat');
@@ -109,7 +122,7 @@ for i = 1:length(I.runs)
     
     % create the data matrix and blank template, if not present already
     if ~exist(template_grid_file, 'file') ...
-            || ~exist(data_matrix_files{i}, 'file') || I.overwrite
+            || ~exist(data_matrix_files{i}, 'file') || I.overwrite_first_level
         
         % reformat to voxel x datapoint/timepoint
         load(grid_file, 'G');
@@ -138,7 +151,7 @@ for i = 1:length(I.runs)
     % check if output files already exist
     if ~exist(MAT_files_first_level{i}, 'file') ...
             || (I.n_perms > 0 && ~exist(perm_MAT_files_first_level{i}, 'file'))...
-            || I.overwrite
+            || I.overwrite_first_level
         
         switch I.analysis_type
             case 'glm'
@@ -171,7 +184,8 @@ for i = 1:length(I.runs)
                 sigav_glm(data_matrix_files{i}, para_files{i}, ...
                     parameter_file, MAT_files_first_level{i}, ...
                     'onset_delay', I.onset_delay, 'offset_delay', I.offset_delay,...
-                    'n_perms', I.n_perms);
+                    'n_perms', I.n_perms, 'whiten', I.whiten, ...
+                    'remove_unspecified_trials', I.remove_unspecified_trials);
                 
             otherwise
                 error('No matching case for analysis type "%s"\n', I.analysis_type);
@@ -198,7 +212,7 @@ if n_runs > 1
     % check if output files already exist
     if ~exist(MAT_file_second_level, 'file') ...
             || (I.n_perms > 0 && ~exist(perm_MAT_file_second_level, 'file'))...
-            || I.overwrite
+            || I.overwrite_second_level
         
         % perform the second level analysis
         glm_second_level(data_matrix_files, para_files, ...
@@ -212,6 +226,20 @@ else
     perm_MAT_file_second_level = [];
     
 end
+
+%% Analysis concatenating across runs
+
+
+% 
+% 
+% for i = 1:length(I.runs)
+%     
+%                 % first level regression
+%                 sigav_glm(data_matrix_files{i}, para_files{i}, ...
+%                     parameter_file, MAT_files_first_level{i}, ...
+%                     'onset_delay', I.onset_delay, 'offset_delay', I.offset_delay,...
+%                     'n_perms', I.n_perms, 'whiten', I.whiten, ...
+%                     'remove_unspecified_trials', I.remove_unspecified_trials);
 
 %% Reliability measures
 
@@ -286,6 +314,7 @@ for i = 1:n_maps
             close all;
             figh = figure;
             pos = get(figh,'Position');
+            set(figh, 'Renderer', I.renderer);
             set(figh, 'Position', [pos(1:2), 800 800]);
         end
         
