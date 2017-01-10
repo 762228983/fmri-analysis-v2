@@ -44,10 +44,15 @@ I.renderer = 'opengl';
 I.remove_unspecified_trials = false; 
 I.combine_runs_before_fla = false;
 I.demean_runs = true;
+I.keyboard = true;
 I = parse_optInputs_keyvalue(varargin, I);
 if I.overwrite
     I.overwrite_first_level = true;
     I.overwrite_second_level = true;
+end
+
+if I.keyboard
+    keyboard;
 end
 
 %% Directories / setup
@@ -319,9 +324,9 @@ end
 
 % stats from permutation test are stored in a separate file
 if strfind(I.stat_to_plot, 'permtest');
-    [parent_directory, matfile_noext] = fileparts(matfile);
+    [parent_directory, MAT_file_noext] = fileparts(matfile);
     matfile = [parent_directory '/' ...
-        matfile_noext '_' num2str(I.n_perms) 'perms.mat'];
+        MAT_file_noext '_' num2str(I.n_perms) 'perms.mat'];
     clear parent_directory matfile_noext;
 end
 
