@@ -10,7 +10,13 @@ I.voxel_stat = 'beta_one_per_regressor';
 I.overwrite = false;
 I.group_runs = {};
 I.regressor_subset = {};
+I.keyboard = false;
+I.plot = true;
 I = parse_optInputs_keyvalue(varargin, I);
+
+if I.keyboard
+    keyboard;
+end
 
 % quantiles of the distribution to measure
 quantiles = 0.1:0.1:0.9;
@@ -107,7 +113,7 @@ n_data_set_sizes = n_data_set_sizes+1; %#ok<NASGU>
 % plot
 figure_fname = [figure_directory '/' runtype '_voxel_reliability_' ...
     I.voxel_stat '_' num2str(n_smps) 'smps.pdf'];
-if ~exist(figure_fname, 'file') || I.overwrite
+if I.plot
     figure;
     cols = parula(n_quantiles);
     h = errorbar_plot_from_samples(corr_test_retest, log2(data_set_sizes));

@@ -44,7 +44,7 @@ I.renderer = 'opengl';
 I.remove_unspecified_trials = false; 
 I.combine_runs_before_fla = false;
 I.demean_runs = true;
-I.keyboard = true;
+I.keyboard = false;
 I = parse_optInputs_keyvalue(varargin, I);
 if I.overwrite
     I.overwrite_first_level = true;
