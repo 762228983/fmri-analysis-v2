@@ -1,5 +1,5 @@
 function combined_para_files = combine_runs_para_file(exp, us, ...
-    original_para_prefix, original_runs, varargin)
+    original_runtype, original_para_prefix, original_runs, varargin)
 
 % Combines para files across sets of runs and for each group creates a
 % new run of a new combined runtype.
@@ -56,7 +56,7 @@ for i = 1:length(original_runs)
             
             % add the duration of this run to the onset time of the nexxt
             [TR, ~, nTR, ~] = read_functional_scan_parameters(...
-                exp,us,original_para_prefix,original_runs{i}(j));
+                exp,us,original_runtype,original_runs{i}(j));
             run_onset = run_onset + TR * nTR;
 
         end

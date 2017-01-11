@@ -9,17 +9,22 @@ function combined_grid_files = combine_runs_surf_grid(exp, us, original_runtype,
 global root_directory;
 
 % optional input arguments
-I.demean_runs = true;
 I.overwrite = false;
+I.detrend = 0;
 I.combined_runtype = [original_runtype '_combined'];
 I.combined_runs = 1:length(original_runs);
 I.list_all_runs_in_fname = false;
 I.create_para_files = false;
+I.keyboard = false;
 I = parse_optInputs_keyvalue(varargin, I);
 
 % list all runs in file name if the original and combined runtype are the same
 if strcmp(I.combined_runtype, original_runtype)
     I.list_all_runs_in_fname = true;
+end
+
+if I.keyboard
+    keyboard;
 end
 
 %% Combine surface files
@@ -68,16 +73,29 @@ for i = 1:length(original_runs)
             run_index = [run_index; j * ones(size(X,1),1)]; %#ok<AGROW>
         end
         
-        % optionally demean
-        if I.demean_runs
-            D_demeaned = nan(size(D));
+        % optionally detrend
+        if I.detrend >= 0
+            
+            D_detrended = nan(size(D));
             for j = 1:length(original_runs{i})
                 xi = run_index == j;
-                D_demeaned(xi,:) = bsxfun(@minus, D(xi,:), nanmean(D(xi,:),1));
+                                
+                % detrending regression matrix
+                X = (1:sum(xi))'; % time vector
+                X = X-mean(X); % demean time vector
+                X = X * ones(1, I.detrend+1); % replicate to matrix
+                for z = 1:I.detrend+1
+                    X(:,z) = X(:,z).^(z-1);
+                end
+                
+                % detrend
+                D_detrended(xi,:) = D(xi,:) ...
+                    - X * (pinv(X) * D(xi,:));
             end
             
-            % add the mean back
-            D = bsxfun(@plus, D_demeaned, nanmean(D,1));
+            % add the global mean back
+            D = bsxfun(@plus, D_detrended, nanmean(D,1));
+            
         end
         
         % convert back to grid
